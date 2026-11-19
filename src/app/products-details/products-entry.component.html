@@ -1,0 +1,118 @@
+<div class="h-100 w-100">
+    <div class="card shadow-sm">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-car-front"></i> Products List
+            </h5>
+
+            <div class="d-flex align-items-center gap-2">
+                <input type="text" id="filterModelInput" aria-label="Filter by Model"
+                    class="form-control form-control-sm" placeholder="Model" [(ngModel)]="filterModel.model"
+                    [ngModelOptions]="{standalone: true}">
+
+                <input type="text" id="filterVariant" aria-label="Filter by Variant"
+                    class="form-control form-control-sm" placeholder="Variant" [(ngModel)]="filterModel.variant"
+                    [ngModelOptions]="{standalone: true}">
+
+                <select class="form-select form-select-sm" id="filterType" aria-label="Filter by Type"
+                    [(ngModel)]="filterModel.type" [ngModelOptions]="{standalone: true}">
+                    <option [ngValue]="null">All Types</option>
+                    <option *ngFor="let type of productTypes" [ngValue]="type">
+                        {{ productTypeLabels[type] }}
+                    </option>
+                </select>
+
+                <input type="text" id="filterCategory" aria-label="Filter by Category"
+                    class="form-control form-control-sm" placeholder="Category" [(ngModel)]="filterModel.category"
+                    [ngModelOptions]="{standalone: true}">
+
+                <button id="clearFiltersButton" class="btn btn-sm btn-secondary" type="button" (click)="clearFilters()">
+                    <i class="bi bi-x-circle"></i> Clear
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div *ngIf="filteredProducts.length === 0" class="alert alert-info m-3">
+                <i class="bi bi-info-circle"></i> No car details found.
+            </div>
+            <div class="table-responsive" *ngIf="filteredProducts.length > 0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Model</th>
+                            <th>Variant</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Engine</th>
+                            <th>Transmission</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let product of filteredProducts; let idx = index">
+                            <ng-container *ngIf="editIndex !== idx; else editRow">
+                                <td>{{ product.model }}</td>
+                                <td>{{ product.variant }}</td>
+                                <td>{{ productTypeLabels[product.type] }}</td>
+                                <td>{{ product.category }}</td>
+                                <td>{{ product.engine }}</td>
+                                <td>{{ product.transmission }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary me-1" type="button" (click)="edit(idx)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" type="button" (click)="delete(idx)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </ng-container>
+                            <ng-template #editRow>
+                                <td>
+                                    <input type="text" id="productModel{{idx}}" class="form-control form-control-sm"
+                                        [(ngModel)]="editProduct.model" [attr.name]="'editModel' + idx" required
+                                        [ngModelOptions]="{standalone: true}">
+                                </td>
+                                <td>
+                                    <input type="text" id="productVarient{{idx}}" class="form-control form-control-sm"
+                                        [(ngModel)]="editProduct.variant" [attr.name]="'editVariant' + idx" required
+                                        [ngModelOptions]="{standalone: true}">
+                                </td>
+                                <td>
+                                    <select id="productType{{idx}}" class="form-select form-select-sm"
+                                        [(ngModel)]="editProduct.type" [attr.name]="'editType' + idx" required>
+                                        <option value="">Select Type</option>
+                                        <option *ngFor="let type of productTypes" [ngValue]="type">{{
+                                            productTypeLabels[type] }}</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" id="productCategory{{idx}}" class="form-control form-control-sm"
+                                        [(ngModel)]="editProduct.category" [attr.name]="'editCategory' + idx"
+                                        [ngModelOptions]="{standalone: true}">
+                                </td>
+                                <td>
+                                    <input type="text" id="productEngine{{idx}}" class="form-control form-control-sm"
+                                        [(ngModel)]="editProduct.engine" [attr.name]="'editEngine' + idx"
+                                        [ngModelOptions]="{standalone: true}">
+                                </td>
+                                <td>
+                                    <input type="text" id="productTransmission{{idx}}"
+                                        class="form-control form-control-sm" [(ngModel)]="editProduct.transmission"
+                                        [attr.name]="'editTransmission' + idx" [ngModelOptions]="{standalone: true}">
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-success me-1" type="button" (click)="update(idx)">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" type="button" (click)="cancelEdit()">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </td>
+                            </ng-template>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

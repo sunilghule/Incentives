@@ -1,0 +1,777 @@
+<div class="h-100 w-100">
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <div class="py-2">
+        <h5 class="mb-0">Incentive Scheme Setup</h5>
+        <output *ngIf="status()" class="d-block small mt-2" role="status">{{ status() }}</output>
+      </div>
+      <button type="button" class="btn btn-sm btn-light" (click)="newScheme()" [disabled]="busy()">
+        <i class="bi bi-plus-circle"></i> New Scheme
+      </button>
+    </div>
+
+    <div class="card-body">
+
+      <div *ngIf="error()" class="alert alert-danger" role="alert" style="white-space: pre-wrap;">{{ error() }}</div>
+      <output *ngIf="busy()" class="text-muted mb-3 d-block">Working…</output>
+
+      <div class="scheme-month-toolbar mt-2 mb-4" [formGroup]="form" aria-label="Working month and scheme import">
+        <div class="scheme-month-field">
+          <label class="form-label fw-bold" for="monthInput">Working month <span class="text-danger">*</span></label>
+          <div class="input-group input-group-sm">
+            <input type="month" class="form-control form-control-sm" id="monthInput" #workingMonth
+              [value]="form.get('month')?.value" [disabled]="busy()" required
+              (change)="selectWorkingMonth(workingMonth)">
+          </div>
+        </div>
+        <div class="scheme-name-field">
+          <label class="form-label fw-bold" for="schemeNameInput">Scheme Name <span class="text-danger">*</span></label>
+          <div class="input-group input-group-sm">
+            <input type="text" class="form-control form-control-sm" id="schemeNameInput" formControlName="name"
+              placeholder="Enter scheme name" [readOnly]="busy()"
+              [class.is-invalid]="form.get('name')?.invalid && form.get('name')?.touched">
+            @if (hasSavedScheme) {
+            <button type="button" class="btn btn-outline-danger" (click)="deleteCurrentScheme()" [disabled]="busy()"
+              title="Delete saved month scheme" aria-label="Delete saved month scheme">
+              <i class="bi bi-trash"></i>
+            </button>
+            }
+            <div class="invalid-feedback">Scheme name is required</div>
+          </div>
+        </div>
+        <div class="scheme-source-field">
+          <label class="form-label" for="earlierSchemeMonth">Import earlier scheme</label>
+          <div class="input-group input-group-sm">
+            <select id="earlierSchemeMonth" class="form-select" #earlierMonth
+              [disabled]="!canImportEarlierScheme || earlierSchemes.length === 0">
+              <option value="">Select scheme name</option>
+              @for (scheme of earlierSchemes; track scheme.id ?? scheme.month) {
+              <option [value]="scheme.month">{{ scheme.name }} ({{ scheme.month }})</option>
+              }
+            </select>
+            <button type="button" class="btn btn-outline-primary" (click)="importEarlierMonth(earlierMonth.value)"
+              [disabled]="!canImportEarlierScheme || !earlierMonth.value">Import</button>
+          </div>
+        </div>
+        <div class="scheme-file-field">
+          <label for="schemeSpreadsheet" class="form-label">Import Excel file</label>
+          <div class="d-flex gap-2 align-items-center">
+            <input id="schemeSpreadsheet" #schemeFile type="file" class="d-none" accept=".xlsx,.xls,.csv"
+              [disabled]="!canImportExcel" (change)="importSpreadsheet($event)">
+            <button type="button" class="btn btn-outline-primary btn-sm text-nowrap" [disabled]="!canImportExcel"
+              (click)="schemeFile.click()">Import Excel</button>
+            <span class="small text-muted text-break" role="status">{{ selectedFileName() || 'No file selected'
+              }}</span>
+          </div>
+        </div>
+      </div>
+      <form [formGroup]="form" (submit)="$event.preventDefault()" [attr.aria-busy]="busy()">
+        <fieldset [disabled]="busy()">
+          <legend class="visually-hidden">Scheme draft</legend>
+
+          <!-- Sub-Schemes Section -->
+          <div class="mb-3">
+            <h6 class="fw-bold" id="subSchemesHeader">Sub-Schemes</h6>
+            <!-- Sub-Schemes -->
+            <div formArrayName="schemes" class="sub-schemes-list" aria-labelledby="subSchemesHeader">
+              <div *ngFor="let subScheme of schemes.controls; let i=index" [formGroupName]="i"
+                class="card mb-3 border-info sub-scheme-card" (click)="expandSubScheme(subScheme)">
+                <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center">
+                  <div class="d-flex align-items-center gap-2 flex-wrap w-100">
+                    <button type="button" class="btn btn-sm btn-outline-secondary sub-scheme-toggle"
+                      (click)="toggleSubScheme(subScheme); $event.stopPropagation()"
+                      [attr.aria-expanded]="isSubSchemeExpanded(subScheme)" [attr.aria-controls]="'subSchemeBody' + i"
+                      [attr.title]="isSubSchemeExpanded(subScheme) ? 'Collapse sub-scheme' : 'Expand sub-scheme'">
+                      <i class="bi"
+                        [ngClass]="isSubSchemeExpanded(subScheme) ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                      <span class="visually-hidden">
+                        {{ isSubSchemeExpanded(subScheme) ? 'Collapse' : 'Expand' }} sub-scheme
+                      </span>
+                    </button>
+                    <span class="fw-bold">Sub-Scheme {{ i + 1 }}:</span>
+                    <div class="sub-scheme-field sub-scheme-type-field">
+                      <label class="sub-scheme-field-label" [for]="'subSchemeType' + i">Template type</label>
+                      <select class="form-select form-select-sm" formControlName="type" [id]="'subSchemeType' + i"
+                        (change)="onTypeChange(i)">
+                        <option *ngFor="let type of schemeTypes" [value]="type">{{ type }}</option>
+                      </select>
+                    </div>
+                    <div class="sub-scheme-field sub-scheme-name-field">
+                      <label class="sub-scheme-field-label" [for]="'subSchemeName' + i">Sub-scheme name</label>
+                      <input type="text" class="form-control form-control-sm" formControlName="name"
+                        [id]="'subSchemeName' + i" placeholder="Enter sub-scheme name"
+                        [class.is-invalid]="subScheme.get('name')?.invalid && subScheme.get('name')?.touched">
+                    </div>
+                    <div class="sub-scheme-field sub-scheme-priority-field">
+                      <label class="sub-scheme-field-label" [for]="'subSchemePriority' + i">Priority</label>
+                      <input type="number" class="form-control form-control-sm" formControlName="priority"
+                        [id]="'subSchemePriority' + i" min="1" placeholder="1"
+                        [class.is-invalid]="subScheme.get('priority')?.invalid && subScheme.get('priority')?.touched">
+                    </div>
+                    <div class="d-flex align-items-end gap-1 ms-auto sub-scheme-actions">
+                      <button type="button" class="btn btn-sm btn-outline-secondary me-1" (click)="cloneSubScheme(i)"
+                        title="Clone this sub-scheme">
+                        Clone
+                      </button>
+                      <button type="button" class="btn btn-sm btn-outline-danger me-2" (click)="removeSubScheme(i)"
+                        title="Remove this sub-scheme">
+                        Remove
+                      </button>
+                      <!-- Add Tier button moved here, next to delete -->
+                      <button *ngIf="subScheme.get('type')?.value === 'Volume Based'" type="button"
+                        class="btn btn-sm btn-outline-primary" (click)="addTier(i)" title="Add Tier">
+                        <i class="bi bi-plus-circle"></i>
+                      </button>
+                      <button *ngIf="subScheme.get('type')?.value === 'GM Target'" type="button"
+                        class="btn btn-sm btn-outline-primary" (click)="addGMTargetTier(i)" title="Add GM Target Tier">
+                        <i class="bi bi-plus-circle"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body sub-scheme-body" [id]="'subSchemeBody' + i"
+                  [hidden]="!isSubSchemeExpanded(subScheme)" [attr.aria-hidden]="!isSubSchemeExpanded(subScheme)">
+                  <div *ngIf="isAdvancedType(subScheme.get('type')?.value)" class="mb-3">
+                    <label class="form-label" [for]="'configJson' + i">Advanced configuration (JSON)</label>
+                    <textarea class="form-control font-monospace" rows="8" formControlName="configJson"
+                      [id]="'configJson' + i" [attr.aria-describedby]="'configJsonHelp' + i"></textarea>
+                    <small class="text-muted" [id]="'configJsonHelp' + i">Edit the type-specific config object. JSON and
+                      scheme validation run before Save or Excel export.</small>
+                  </div>
+                  <!-- Volume Based Configuration -->
+                  <div *ngIf="subScheme.get('type')?.value === 'Volume Based'">
+                    <!-- Car Model and Type -->
+                    <details class="mb-3">
+                      <summary class="form-label fw-semibold mb-2">Car model specific</summary>
+                      <div class="row mt-3 align-items-end">
+                        <div class="col-md-5">
+                          <div class="mb-2">
+                            <span *ngFor="let model of subScheme.get('carModels')?.value"
+                              class="badge bg-success me-2 mb-1" style="font-size: 0.875rem; padding: 0.5rem 0.75rem;">
+                              {{ model }}
+                              <button type="button" class="btn-close btn-close-white ms-2"
+                                style="font-size: 0.6rem; padding: 0;" (click)="removeCarModel(i, model)"
+                                aria-label="Remove"></button>
+                            </span>
+                          </div>
+                          <div class="input-group input-group-sm">
+                            <select class="form-select" #carModelInput [id]="'carModelInput' + i">
+                              <option value="">Select car model</option>
+                              @for (model of carModels; track model) {
+                              <option [value]="model">{{ model }}</option>
+                              }
+                            </select>
+                            <button type="button" class="btn btn-outline-success"
+                              (click)="addCarModel(i, carModelInput.value); carModelInput.value = ''">
+                              <i class="bi bi-plus"></i> Add
+                            </button>
+                          </div>
+                        </div>
+                        <div class="col-md-5">
+                          <div class="mb-2">
+                            <span *ngFor="let type of subScheme.get('carTypes')?.value"
+                              class="badge bg-warning text-dark me-2 mb-1"
+                              style="font-size: 0.875rem; padding: 0.5rem 0.75rem;">
+                              {{ type }}
+                              <button type="button" class="btn-close ms-2" style="font-size: 0.6rem; padding: 0;"
+                                (click)="removeCarType(i, type)" aria-label="Remove"></button>
+                            </span>
+                          </div>
+                          <div class="input-group input-group-sm">
+                            <select class="form-select" #carTypeSelect [id]="'carTypeSelect' + i" aria-label="Car type">
+                              <option value="">-- Select type to add --</option>
+                              <option *ngFor="let type of getAvailableCarTypes(i)" [value]="type">{{ type }}</option>
+                            </select>
+                            <button type="button" class="btn btn-outline-warning"
+                              (click)="addCarType(i, carTypeSelect.value); carTypeSelect.value = ''">
+                              <i class="bi bi-plus"></i> Add
+                            </button>
+                          </div>
+                        </div>
+                        <div class="col-md-2">
+                          <div class="form-check mb-1">
+                            <input class="form-check-input" type="checkbox" formControlName="applyStockDifferential"
+                              [id]="'stockDiff' + i">
+                            <label class="form-check-label" [for]="'stockDiff' + i">
+                              Stock Differential
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                    <div formArrayName="tiers">
+                      <div *ngIf="getTiers(i).length === 0" class="alert alert-warning mb-3">
+                        <i class="bi bi-exclamation-triangle"></i> No tiers defined. Add at least one tier.
+                      </div>
+                      <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered" [id]="'incentiveTiersTable' + i">
+                          <thead class="table-light">
+                            <tr>
+                              <th style="width: 8%;">Rank</th>
+                              <th style="width: 20%;">Min Volume <span class="text-danger">*</span></th>
+                              <th style="width: 20%;">Max Volume <span class="text-danger">*</span></th>
+                              <th style="width: 22%;">Stock Amount (₹) <span class="text-danger">*</span></th>
+                              <th style="width: 22%;" *ngIf="subScheme.get('applyStockDifferential')?.value">
+                                Order Amount (₹)
+                              </th>
+                              <th style="width: 8%;" class="text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let tier of getTiers(i).controls; let j=index" [formGroupName]="j">
+                              <td>
+                                <select class="form-select form-select-sm rank-select"
+                                  [id]="'volumeRank-' + i + '-' + j" [ngClass]="getRankClass(tier.get('rank')?.value)"
+                                  formControlName="rank">
+                                  <option value="" disabled>Select rank</option>
+                                  <option *ngFor="let rank of employeeRanks; let rIdx = index" [value]="rank">
+                                    {{ rank }}
+                                  </option>
+                                </select>
+                              </td>
+                              <td>
+                                <input type="number" [id]="'volumeMinVolume-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="minVolume" min="0"
+                                  placeholder="0">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'volumeMaxVolume-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="maxVolume" min="0"
+                                  placeholder="999">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'volumeIncentiveAmount-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="incentiveAmount" min="0"
+                                  placeholder="5000">
+                              </td>
+                              <td *ngIf="subScheme.get('applyStockDifferential')?.value">
+                                <input type="number" [id]="'volumeNonStockAmount-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="incentiveAmountNonStock" min="0"
+                                  placeholder="3000">
+                              </td>
+                              <td class="text-center">
+                                <!-- Only show remove button if row is not empty -->
+                                <button
+                                  *ngIf="tier.get('minVolume')?.value || tier.get('maxVolume')?.value || tier.get('incentiveAmount')?.value || (subScheme.get('applyStockDifferential')?.value && tier.get('incentiveAmountNonStock')?.value)"
+                                  type="button" class="btn btn-sm btn-outline-danger" (click)="removeTier(i, j)"
+                                  title="Remove tier">
+                                  <i class="bi bi-trash"></i>
+                                </button>
+                                <!-- Show add button only in last row, and only if current row is NOT empty -->
+                                <button *ngIf="j === getTiers(i).length - 1 && (
+                                tier.get('minVolume')?.value || tier.get('maxVolume')?.value || tier.get('incentiveAmount')?.value || (subScheme.get('applyStockDifferential')?.value && tier.get('incentiveAmountNonStock')?.value)
+                                )" type="button" class="btn btn-sm btn-outline-primary ms-1"
+                                  (click)="duplicateLastTier(i)" title="Duplicate last tier">
+                                  <i class="bi bi-plus-circle"></i>
+                                </button>
+                              </td>
+                            </tr>
+                            <!-- Validation row for duplicate range/rank -->
+                            <tr *ngIf="hasDuplicateTierRange(i)">
+                              <td [attr.colspan]="subScheme.get('applyStockDifferential')?.value ? 6 : 5">
+                                <div class="alert alert-danger py-1 my-1 mb-0">
+                                  Duplicate Min/Max Volume range for the same Rank detected. Please ensure each range
+                                  for
+                                  a rank is unique.
+                                </div>
+                              </td>
+                            </tr>
+                            <!-- Validation row for overlapping range/rank -->
+                            <tr *ngIf="hasOverlappingTierRange(i)">
+                              <td [attr.colspan]="subScheme.get('applyStockDifferential')?.value ? 6 : 5">
+                                <div class="alert alert-danger py-1 my-1 mb-0">
+                                  Overlapping Min/Max Volume ranges detected for the same Rank. Please ensure ranges do
+                                  not overlap.
+                                </div>
+                              </td>
+                            </tr>
+                            <!-- Validation row for min < max -->
+                            <tr *ngIf="hasInvalidMinMaxVolume(i)">
+                              <td [attr.colspan]="subScheme.get('applyStockDifferential')?.value ? 6 : 5">
+                                <div class="alert alert-danger py-1 my-1 mb-0">
+                                  Min Volume must not exceed Max Volume for each tier.
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- End Volume Based Configuration -->
+
+                  <!-- Model Bonus Configuration -->
+                  <div *ngIf="subScheme.get('type')?.value === 'Model Bonus'">
+                    <div formArrayName="modelBonusTiers">
+                      <div class="table-responsive">
+                        <table class="table table-bordered table-hover" [id]="'modelBonusTiersTable' + i">
+                          <thead class="table-light">
+                            <tr>
+                              <th style="width: 8%;">Rank</th>
+                              <th style="width: 61%;" [id]="'modelBonusCarModelsHeader-' + i">Car Models</th>
+                              <th style="width: 10%;">Number of Cars</th>
+                              <th style="width: 13%;">Fixed Incentive</th>
+                              <th style="width: 8%;" class="text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let tier of getModelBonusTiers(i).controls; let j=index" [formGroupName]="j">
+                              <td>
+                                <select class="form-select form-select-sm rank-select"
+                                  [id]="'modelBonusRank-' + i + '-' + j"
+                                  [ngClass]="getRankClass(tier.get('rank')?.value)" formControlName="rank">
+                                  <option value="" disabled>Select rank</option>
+                                  <option *ngFor="let rank of employeeRanks; let rIdx = index" [value]="rank">
+                                    {{ rank }}
+                                  </option>
+                                </select>
+                              </td>
+                              <td>
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                  <span *ngFor="let model of tier.get('carModels')?.value"
+                                    class="badge bg-primary d-inline-flex align-items-center">
+                                    {{ model }}
+                                    <button type="button" class="btn-close btn-close-white ms-1"
+                                      style="font-size: 0.6rem;" (click)="removeModelBonusCarModel(i, j, model)"
+                                      title="Remove model">
+                                    </button>
+                                  </span>
+                                  <div class="input-group input-group-sm flex-nowrap"
+                                    style="flex: 1 1 14rem; min-width: 12rem;">
+                                    <select class="form-select" #modelBonusModelInput
+                                      [id]="'modelBonusCarModel-' + i + '-' + j"
+                                      [attr.aria-labelledby]="'modelBonusCarModelsHeader-' + i">
+                                      <option value="">Select car model</option>
+                                      @for (model of carModels; track model) {
+                                      <option [value]="model">{{ model }}</option>
+                                      }
+                                    </select>
+                                    <button type="button" class="btn btn-outline-success text-nowrap"
+                                      (click)="addModelBonusCarModel(i, j, modelBonusModelInput.value); modelBonusModelInput.value = ''">
+                                      <i class="bi bi-plus"></i> Add
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <input type="number" [id]="'modelBonusNumberOfCars-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="numberOfCars" min="1"
+                                  placeholder="5">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'modelBonusFixedIncentive-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="fixedIncentiveAmount" min="0"
+                                  placeholder="10000">
+                              </td>
+                              <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                  (click)="removeModelBonusTier(i, j)" title="Remove tier">
+                                  <i class="bi bi-trash"></i>
+                                </button>
+                                <button *ngIf="j === getModelBonusTiers(i).length - 1" type="button"
+                                  class="btn btn-sm btn-outline-primary ms-1" (click)="addModelBonusTier(i)"
+                                  title="Add Tier">
+                                  <i class="bi bi-plus-circle"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- End Model Bonus Configuration -->
+
+                  <!-- Stock Reduction Configuration -->
+                  <div *ngIf="subScheme.get('type')?.value === 'Stock Reduction'">
+                    <!-- Stock Reduction Tiers -->
+                    <div class="row mb-3">
+                      <div class="col-md-12">
+                        <label class="form-label fw-bold" [for]="'stockReductionTiersTable' + i">
+                          <i class="bi bi-box-seam"></i> Stock Reduction Tiers
+                        </label>
+                      </div>
+                    </div>
+
+                    <div formArrayName="stockReductionTiers">
+                      <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered" [id]="'stockReductionTiersTable' + i">
+                          <thead class="table-light">
+                            <tr>
+                              <th style="width: 8%;">Rank</th>
+                              <th style="width: 18%;">Min Days <span class="text-danger">*</span></th>
+                              <th style="width: 18%;">Max Days <span class="text-danger">*</span></th>
+                              <th style="width: 18%;">Sale Target <span class="text-danger">*</span></th>
+                              <th style="width: 30%;">Incentive (₹) <span class="text-danger">*</span></th>
+                              <th style="width: 8%;" class="text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let tier of getStockReductionTiers(i).controls; let j=index"
+                              [formGroupName]="j">
+                              <td>
+                                <select class="form-select form-select-sm rank-select" [id]="'stockRank-' + i + '-' + j"
+                                  [ngClass]="getRankClass(tier.get('rank')?.value)" formControlName="rank">
+                                  <option value="" disabled>Select rank</option>
+                                  <option *ngFor="let rank of employeeRanks; let rIdx = index" [value]="rank">
+                                    {{ rank }}
+                                  </option>
+                                </select>
+                              </td>
+                              <td>
+                                <input type="number" [id]="'stockMinDays-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="minStockDays" min="0"
+                                  placeholder="30">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'stockMaxDays-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="maxStockDays" min="0"
+                                  placeholder="60">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'stockSaleTarget-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="saleTarget" min="0"
+                                  placeholder="10">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'stockIncentiveAmount-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="incentiveAmount" min="0"
+                                  placeholder="50000">
+                              </td>
+                              <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                  (click)="removeStockReductionTier(i, j)" title="Remove tier">
+                                  <i class="bi bi-trash"></i>
+                                </button>
+                                <button *ngIf="j === getStockReductionTiers(i).length - 1" type="button"
+                                  class="btn btn-sm btn-outline-primary ms-1" (click)="addStockReductionTier(i)"
+                                  [disabled]="
+                                  !(
+                                    !tier.get('minStockDays')?.value &&
+                                    !tier.get('maxStockDays')?.value &&
+                                    !tier.get('saleTarget')?.value &&
+                                    !tier.get('incentiveAmount')?.value
+                                  )
+                                " title="Add Stock Reduction Tier">
+                                  <i class="bi bi-plus-circle"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                  </div>
+                  <!-- End Stock Reduction Configuration -->
+
+                  <!-- Accessories Configuration -->
+                  <div *ngIf="subScheme.get('type')?.value === 'Accessories'">
+                    <div formArrayName="accessoryTiers">
+                      <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0" [id]="'accessoryTiersTable' + i">
+                          <thead class="table-light">
+                            <tr>
+                              <th style="width: 8%;">Rank</th>
+                              <th style="width: 42%;">Slab Amount (₹) <span class="text-danger">*</span></th>
+                              <th style="width: 14%;">Incentive %</th>
+                              <th style="width: 28%;">Fixed Incentive (₹)</th>
+                              <th style="width: 8%;" class="text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let tier of getAccessoryTiers(i).controls; let j=index" [formGroupName]="j">
+                              <td>
+                                <select class="form-select form-select-sm rank-select"
+                                  [id]="'accessoryRank-' + i + '-' + j"
+                                  [ngClass]="getRankClass(tier.get('rank')?.value)" formControlName="rank">
+                                  <option value="" disabled>Select rank</option>
+                                  <option *ngFor="let rank of employeeRanks; let rIdx = index" [value]="rank">
+                                    {{ rank }}
+                                  </option>
+                                </select>
+                              </td>
+                              <td>
+                                <input type="number" [id]="'accessoryAmount-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="amount" min="0.01"
+                                  placeholder="10000" aria-label="Slab amount">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'accessoryIncentivePercent-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="incentivePercent" min="0.01"
+                                  max="100" placeholder="5"
+                                  (input)="onAccessoryIncentiveChange(tier, 'incentivePercent')">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'accessoryIncentiveAmount-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="incentiveAmount" min="0.01"
+                                  placeholder="e.g. 500" (input)="onAccessoryIncentiveChange(tier, 'incentiveAmount')">
+                              </td>
+                              <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                  (click)="removeAccessoryTier(i, j)" title="Remove tier">
+                                  <i class="bi bi-trash"></i>
+                                </button>
+                                <button *ngIf="j === getAccessoryTiers(i).length - 1" type="button"
+                                  class="btn btn-sm btn-outline-primary ms-1" (click)="addAccessoryTier(i)"
+                                  [disabled]="!canAddAccessoryTier(tier)" title="Add Accessory Tier">
+                                  <i class="bi bi-plus-circle"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- End Accessories Configuration -->
+
+                  <!-- GM Target Configuration -->
+                  <div *ngIf="subScheme.get('type')?.value === 'GM Target'">
+                    <div formArrayName="gmTargetTiers">
+                      <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered" [id]="'gmTargetTiersTable' + i">
+                          <thead class="table-light">
+                            <tr>
+                              <th style="width: 36%;" [id]="'gmCarModelsHeader-' + i">Car Model</th>
+                              <th style="width: 26%;">Number of Cars <span class="text-danger">*</span></th>
+                              <th style="width: 30%;">Additional Discount % <span class="text-danger">*</span></th>
+                              <th style="width: 8%;" class="text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let tier of getGMTargetTiers(i).controls; let j=index" [formGroupName]="j">
+                              <td>
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                  <span *ngFor="let model of tier.get('carModels')?.value"
+                                    class="badge bg-success d-inline-flex align-items-center">
+                                    {{ model }}
+                                    <button type="button" class="btn-close btn-close-white ms-1"
+                                      style="font-size: 0.6rem;" (click)="removeGMTargetCarModel(i, j, model)"
+                                      title="Remove model"></button>
+                                  </span>
+                                  <div class="input-group input-group-sm flex-nowrap"
+                                    style="flex: 1 1 14rem; min-width: 12rem;">
+                                    <select class="form-select" #gmCarModelInput [id]="'gmCarModel-' + i + '-' + j"
+                                      [attr.aria-labelledby]="'gmCarModelsHeader-' + i">
+                                      <option value="">Select car model</option>
+                                      @for (model of carModels; track model) {
+                                      <option [value]="model">{{ model }}</option>
+                                      }
+                                    </select>
+                                    <button type="button" class="btn btn-outline-success text-nowrap"
+                                      (click)="addGMTargetCarModel(i, j, gmCarModelInput.value); gmCarModelInput.value = ''">
+                                      <i class="bi bi-plus"></i> Add
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <input type="number" [id]="'gmNumberOfCars-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="numberOfCars" min="0"
+                                  placeholder="10">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'gmAdditionalDiscountPercent-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="additionalDiscountPercent"
+                                  min="0" max="100" placeholder="2">
+                              </td>
+                              <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                  (click)="removeGMTargetTier(i, j)" title="Remove tier">
+                                  <i class="bi bi-trash"></i>
+                                </button>
+                                <button *ngIf="j === getGMTargetTiers(i).length - 1" type="button"
+                                  class="btn btn-sm btn-outline-primary ms-1" (click)="addGMTargetTier(i)" [disabled]="
+                                  !(
+                                    !tier.get('numberOfCars')?.value &&
+                                    !tier.get('additionalDiscountPercent')?.value
+                                  )
+                                " title="Add GM Target Tier">
+                                  <i class="bi bi-plus-circle"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                  </div>
+                  <!-- End GM Target Configuration -->
+
+                  <!-- Location Based Configuration -->
+                  <div *ngIf="subScheme.get('type')?.value === 'Location Based'">
+                    <div formArrayName="locationTargets">
+                      <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered" [id]="'locationTargetsTable' + i">
+                          <thead class="table-light">
+                            <tr>
+                              <th style="width: 28%;">Location <span class="text-danger">*</span></th>
+                              <th style="width: 10%;">Rank</th>
+                              <th style="width: 17%;">Target Number <span class="text-danger">*</span></th>
+                              <th style="width: 15%;">Target in % <span class="text-danger">*</span></th>
+                              <th style="width: 22%;">Bonus Amount (₹) <span class="text-danger">*</span></th>
+                              <th style="width: 8%;" class="text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let target of getLocationTargets(i).controls; let j=index" [formGroupName]="j">
+                              <td>
+                                <select class="form-select form-select-sm"
+                                  [id]="'locationTargetLocation-' + i + '-' + j" formControlName="location">
+                                  <option value="">Select location</option>
+                                  @for (location of locations; track location) {
+                                  <option [value]="location">{{ location }}</option>
+                                  }
+                                </select>
+                              </td>
+                              <td>
+                                <select class="form-select form-select-sm rank-select"
+                                  [id]="'locationTargetRank-' + i + '-' + j"
+                                  [ngClass]="getRankClass(target.get('rank')?.value)" formControlName="rank">
+                                  <option value="">All ranks</option>
+                                  <option *ngFor="let rank of employeeRanks" [value]="rank">{{ rank }}</option>
+                                </select>
+                              </td>
+                              <td>
+                                <input type="number" [id]="'locationTargetUnits-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="targetUnits" min="1"
+                                  placeholder="10">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'locationTargetPercent-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="targetPercent" min="0.01"
+                                  max="100" placeholder="100">
+                              </td>
+                              <td>
+                                <input type="number" [id]="'locationTargetBonus-' + i + '-' + j"
+                                  class="form-control form-control-sm" formControlName="bonusAmount" min="0"
+                                  placeholder="5000">
+                              </td>
+                              <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                  (click)="removeLocationTarget(i, j)" title="Remove location target">
+                                  <i class="bi bi-trash"></i>
+                                </button>
+                                <button *ngIf="j === getLocationTargets(i).length - 1" type="button"
+                                  class="btn btn-sm btn-outline-primary ms-1" (click)="addLocationTarget(i)"
+                                  [disabled]="!target.valid" title="Add location target">
+                                  <i class="bi bi-plus-circle"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- End Location Based Configuration -->
+
+                  <!-- Target Achievement Configuration -->
+                  <div *ngIf="subScheme.get('type')?.value === 'Target Achievement'">
+                    <div formArrayName="targetAchievementTiers">
+                      <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered" [id]="'targetAchievementTiersTable' + i">
+                          <thead class="table-light">
+                            <tr>
+                              <th style="width: 28%;">Finance / Extended Warranty</th>
+                              <th style="width: 12%;">Rank</th>
+                              <th style="width: 20%;">Achievement in % <span class="text-danger">*</span></th>
+                              <th style="width: 24%;">Bonus Amount (₹) <span class="text-danger">*</span></th>
+                              <th style="width: 8%;" class="text-center">Per Car</th>
+                              <th style="width: 8%;" class="text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let tier of getTargetAchievementTiers(i).controls; let j=index"
+                              [formGroupName]="j">
+                              <td>
+                                <select class="form-select form-select-sm" formControlName="category"
+                                  [id]="'targetAchievementCategory-' + i + '-' + j">
+                                  @for (category of targetAchievementCategories; track category) {
+                                  <option [value]="category">{{ category }}</option>
+                                  }
+                                </select>
+                              </td>
+                              <td>
+                                <select class="form-select form-select-sm rank-select" formControlName="rank"
+                                  [id]="'targetAchievementRank-' + i + '-' + j"
+                                  [ngClass]="getRankClass(tier.get('rank')?.value)">
+                                  <option value="">All ranks</option>
+                                  <option *ngFor="let rank of employeeRanks" [value]="rank">{{ rank }}</option>
+                                </select>
+                              </td>
+                              <td>
+                                <input type="number" class="form-control form-control-sm"
+                                  [id]="'targetAchievementPercent-' + i + '-' + j"
+                                  formControlName="requiredAchievementPercent" min="0.01" max="100" placeholder="100">
+                              </td>
+                              <td>
+                                <input type="number" class="form-control form-control-sm"
+                                  [id]="'targetAchievementBonus-' + i + '-' + j" formControlName="bonusAmount" min="0"
+                                  placeholder="5000">
+                              </td>
+                              <td class="text-center align-middle">
+                                <input class="form-check-input" type="checkbox" formControlName="perCarValue"
+                                  [id]="'targetAchievementPerCar-' + i + '-' + j" aria-label="Apply bonus per car">
+                              </td>
+                              <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                  (click)="removeTargetAchievementTier(i, j)" title="Remove target tier">
+                                  <i class="bi bi-trash"></i>
+                                </button>
+                                <button *ngIf="j === getTargetAchievementTiers(i).length - 1" type="button"
+                                  class="btn btn-sm btn-outline-primary ms-1" (click)="addTargetAchievementTier(i)"
+                                  [disabled]="!tier.valid" title="Add target tier">
+                                  <i class="bi bi-plus-circle"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- End Target Achievement Configuration -->
+                </div>
+              </div>
+            </div>
+
+            <!-- No Sub-Schemes Message -->
+            <div *ngIf="schemes.length === 0" class="alert alert-info">
+              No sub-schemes defined yet. Click "Add Sub-Scheme" to create one.
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="d-flex gap-2 justify-content-between">
+            <div>
+              <button type="button" class="btn btn-outline-primary" (click)="addSubScheme()"
+                [disabled]="busy() || !form.get('month')?.value">
+                <i class="bi bi-plus-circle"></i> Add Sub-Scheme
+              </button>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-outline-secondary" (click)="exportExcel()">
+                <i class="bi bi-download"></i> Export Excel
+              </button>
+              <button type="button" class="btn btn-primary" (click)="save()" [disabled]="busy()">
+                <i class="bi bi-save"></i> Save Scheme
+              </button>
+            </div>
+          </div>
+        </fieldset>
+      </form>
+
+      @if (savedJson()) {
+      <details class="saved-json-panel mt-3">
+        <summary class="fw-semibold">Saved scheme JSON</summary>
+        <pre class="saved-json mb-0 mt-2"><code>{{ savedJson() }}</code></pre>
+      </details>
+      }
+    </div>
+  </div>
+
+</div>

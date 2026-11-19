@@ -1,0 +1,32 @@
+<div class="floating-layout vh-100 d-flex overflow-hidden">
+  <!-- Sidebar (floating, collapsible) -->
+  <aside class="sidebar-floating bg-dark text-white d-flex flex-column align-items-stretch"
+    [class.collapsed]="collapsed">
+    <div class="d-flex justify-content-between align-items-center mb-4 sidebar-header">
+      <ng-container *ngIf="!collapsed">
+        <h5 class="mb-0">Incentive System</h5>
+      </ng-container>
+      <ng-container *ngIf="collapsed">
+        <span class="bi bi-award" style="font-size:2rem; display:flex; align-items:center;"></span>
+      </ng-container>
+      <button class="btn btn-sm btn-outline-light ms-auto me-1" (click)="collapsed = !collapsed" title="Toggle Sidebar">
+        <span *ngIf="!collapsed">&laquo;</span>
+        <span *ngIf="collapsed">&raquo;</span>
+      </button>
+    </div>
+    <ul class="nav flex-column gap-2 sidebar-list" [class.align-items-center]="collapsed">
+      <li class="nav-item" *ngFor="let item of sidebarItems">
+        <a class="nav-link text-white d-flex align-items-center justify-content-center" [routerLink]="item.link"
+          routerLinkActive="active fw-bold">
+          <span [ngClass]="item.icon" [title]="item.tooltip" aria-hidden="true" style="font-size: 1.5rem; display:inline-block;"></span>
+          <span *ngIf="!collapsed" class="ms-2">{{ item.label }}</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
+
+  <!-- Main content (floating) -->
+  <main class="main-floating d-flex flex-column flex-fill overflow-hidden min-h-0" [class.full-width]="collapsed">
+    <router-outlet></router-outlet>
+  </main>
+</div>

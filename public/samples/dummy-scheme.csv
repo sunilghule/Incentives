@@ -1,0 +1,8 @@
+scheme name,month,locations,sub scheme,type,priority,rank,min volume,max volume,incentive amount,non stock amount,car models,car types,stock differential,number of cars,fixed amount,amount,incentive percent,min stock days,max stock days,sale target,additional discount percent
+DEMO ONLY,2026-11,Pune,DEMO ONLY Volume Based,Volume Based,1,CA,1,3,1000,,,,,,,,,,,,
+DEMO ONLY,2026-11,Pune,DEMO ONLY Volume Based,Volume Based,1,CA,4,999,1500,,,,,,,,,,,,
+DEMO ONLY,2026-11,Pune,DEMO ONLY Model Bonus,Model Bonus,2,CA,,,,,Swift,,,2,2000,,,,,,
+DEMO ONLY,2026-11,Pune,DEMO ONLY Accessories,Accessories,3,CA,,,,,,,,,,10000,2,,,,
+DEMO ONLY,2026-11,Pune,DEMO ONLY Accessories,Accessories,3,CA,,,,,,,,,,25000,3,,,,
+DEMO ONLY,2026-11,Pune,DEMO ONLY Stock Reduction,Stock Reduction,4,CA,,,800,,,,,,,,,61,9999,2,
+DEMO ONLY,2026-11,Pune,DEMO ONLY GM Target,GM Target,5,,,,,,,,,5,,,,,,,2

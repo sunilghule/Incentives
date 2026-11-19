@@ -1,0 +1,73 @@
+/* Dim font weight for all control placeholders */
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  font-weight: 300 !important;
+  color: #b0b0b0 !important;
+  opacity: 1;
+}
+
+.nav-link.active {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+input.form-control,
+select.form-select,
+textarea.form-control,
+button,
+.btn,
+.card,
+.table,
+.row,
+.col,
+.form-label,
+.form-check,
+.form-group {
+  padding: 4px !important;
+}
+
+input.form-control[type="text"] {
+  width: 15rem !important;
+}
+
+input.form-control[type="date"] {
+  width: 8rem !important;
+}
+
+.min-h-0 {
+  min-height: 0 !important;
+}
+
+.floating-layout {
+  height: 100vh;
+}
+
+.main-floating {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.card,
+.card-body,
+.table-responsive {
+  min-height: 0;
+}
+
+.table-responsive {
+  max-height: 100%;
+}
+
+/* Router-outlet inserts each routed component as a sibling host element right
+   after <router-outlet>; it defaults to display:block/content-sized, so it never
+   gets a bounded height and inner scroll containers never activate. Must live in
+   global styles (not component scss) since routed hosts don't carry the
+   host component's _ngcontent attribute. */
+.main-floating>router-outlet+* {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}

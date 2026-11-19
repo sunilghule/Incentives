@@ -1,0 +1,194 @@
+<div class="h-100 w-100 d-flex flex-column">
+
+  <div class="card shadow-sm header">
+
+    <div class="card-header bg-primary text-white flex-shrink-0 d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">
+        <i class="bi bi-calendar-month me-2"></i>
+        Sales Entry
+      </h5>
+
+      <app-employee-filter [(filter)]="filter" [disabled]="isEditing"></app-employee-filter>
+    </div>
+
+    <div class="card-body d-flex flex-column">
+
+      <!-- Working Month -->
+      <div class="d-flex align-items-center gap-2 mb-4 flex-shrink-0">
+        <label for="workingMonthInput" class="form-label fw-bold mb-0">
+          Working Month
+          <span class="text-danger">*</span>
+        </label>
+
+        <input id="workingMonthInput" type="month" class="form-control form-control-sm w-auto"
+          [(ngModel)]="selectedMonth" (change)="onMonthChange()" [disabled]="isEditing">
+
+        <button type="button" class="btn btn-primary btn-sm" (click)="addSalesEntryRow()" [disabled]="isEditing">
+          <i class="bi bi-plus-lg me-1"></i>
+          Add Row
+        </button>
+
+        <button type="button" class="btn btn-outline-primary btn-sm" (click)="excelFileInput.click()">
+          <i class="bi bi-file-earmark-excel me-1"></i>
+          Import Excel
+        </button>
+        <label id="labelFileInput" for="excelFileInput" [hidden]="true"> Hidden</label>
+        <input id="excelFileInput" #excelFileInput type="file" class="d-none" accept=".xlsx,.xls"
+          (change)="onExcelFileSelected($event)">
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="saveSalesEntry()" class="d-flex flex-column flex-grow-1 min-h-0 h-100">
+
+        <div formArrayName="salesEntries" class="content d-flex flex-column flex-grow-1 min-h-0">
+
+          <!-- SCROLL CONTAINER -->
+          <div #salesTableContainer class="table-responsive sales-table-container">
+            <table class="table table-bordered table-sm table-hover excel-like-table mb-0">
+
+              <thead class="table-light">
+                <tr>
+                  <th class="excel-header">Sr.No.</th>
+                  <th class="excel-header text-center">Action</th>
+                  <th class="excel-header">Invoice No</th>
+                  <th class="excel-header">Invoice Date</th>
+                  <th class="excel-header">Stock Date</th>
+                  <th class="excel-header">Debit Note No</th>
+                  <th class="excel-header">Debit Note Date</th>
+                  <th class="excel-header">Chassis No</th>
+                  <th class="excel-header">Engine No</th>
+                  <th class="excel-header">Product Model</th>
+                  <th class="excel-header">Associate</th>
+                  <th class="excel-header">Location</th>
+                  <th class="excel-header" hidden>TL</th>
+                  <th class="excel-header">TM Invoice Date</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr #vehicleSalesRow *ngFor="
+                    let entry of salesEntries.controls;
+                    let i = index;
+                    trackBy: trackByControl
+                  " [formGroupName]="i" [hidden]="!isRowVisible(i, entry)">
+
+                  <td class="excel-cell text-center align-middle">
+                    {{ i + 1 }}
+                  </td>
+
+                  <td class="text-center text-nowrap">
+                    <ng-container *ngIf="editingIndex === i; else viewActions">
+                      <button type="button" id="btnSaveRow_{{ i }}" class="btn btn-success btn-sm me-1" title="Save row"
+                        (click)="saveSalesEntryRow(i)">
+                        <i class="bi bi-check-lg"></i>
+                      </button>
+                      <button type="button" id="btnCancelRow_{{ i }}" class="btn btn-outline-secondary btn-sm"
+                        title="Cancel" (click)="cancelSalesEntryRow(i)">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                      </button>
+                    </ng-container>
+
+                    <ng-template #viewActions>
+                      <button type="button" id="btnEdit_{{ i }}" class="btn btn-outline-primary btn-sm me-1"
+                        title="Edit row" (click)="editSalesEntryRow(i)" [disabled]="isEditing">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button type="button" id="btnRemove_{{ i }}" class="btn btn-danger btn-sm" title="Remove row"
+                        (click)="removeSalesEntryRow(i)" [disabled]="isEditing">
+                        <i class="bi bi-x-lg"></i>
+                      </button>
+                    </ng-template>
+                  </td>
+
+                  <td>
+                    <input type="text" id="invoiceNumber_{{ i }}" class="form-control excel-cell"
+                      formControlName="invoiceNumber">
+                  </td>
+
+                  <td>
+                    <input type="date" id="invoiceDate_{{ i }}" class="form-control excel-cell"
+                      formControlName="invoiceDate">
+                  </td>
+
+                  <td>
+                    <input type="date" id="stockDate_{{ i }}" class="form-control excel-cell"
+                      formControlName="stockDate">
+                  </td>
+
+                  <td>
+                    <input type="text" id="debitNoteNumber_{{ i }}" class="form-control excel-cell"
+                      formControlName="debitNoteNumber">
+                  </td>
+
+                  <td>
+                    <input type="date" id="debitNoteDate_{{ i }}" class="form-control excel-cell"
+                      formControlName="debitNoteDate">
+                  </td>
+
+                  <td>
+                    <input type="text" id="chassisNo_{{ i }}" class="form-control excel-cell"
+                      formControlName="chassisNo">
+                  </td>
+
+                  <td>
+                    <input type="text" id="engineNo_{{ i }}" class="form-control excel-cell" formControlName="engineNo">
+                  </td>
+
+                  <td>
+                    <select id="parentProductLine_{{ i }}" class="form-select excel-cell"
+                      formControlName="parentProductLine">
+                      <option *ngFor="let model of carModels" [value]="model">{{ model }}</option>
+                    </select>
+                  </td>
+
+                  <td>
+                    <select id="ca_{{ i }}" class="form-select excel-cell" formControlName="ca">
+                      <option *ngFor="let associate of associateOptions" [value]="associate.name">
+                        {{ associate.name }}
+                      </option>
+                    </select>
+                  </td>
+
+                  <td>
+                    <select id="location_{{ i }}" class="form-select excel-cell" formControlName="location">
+                      <option *ngFor="let location of locations" [value]="location">{{ location }}</option>
+                    </select>
+                  </td>
+
+                  <td hidden>
+                    <select id="tl_{{ i }}" class="form-select excel-cell" formControlName="tl">
+                      <option *ngFor="let teamLead of teamLeadOptions" [value]="teamLead.name">
+                        {{ teamLead.name }}
+                      </option>
+                    </select>
+                  </td>
+
+                  <td>
+                    <input type="date" id="tmInvoiceDate_{{ i }}" class="form-control excel-cell"
+                      formControlName="tmInvoiceDate">
+                  </td>
+
+                </tr>
+
+                <tr *ngIf="!hasVisibleRows()">
+                  <td colspan="13" class="text-center text-muted py-4">
+                    No sales entries available.
+                  </td>
+                </tr>
+              </tbody>
+
+            </table>
+
+          </div>
+        </div>
+      </form>
+
+      <app-incentive-results [month]="selectedMonth"></app-incentive-results>
+
+      <app-confirm-modal title="Remove Row"
+        [message]="'Are you sure you want to remove row ' + ((pendingRemoveIndex ?? 0) + 1) + '?'"
+        [visible]="pendingRemoveIndex !== null" (confirmed)="confirmRemoveSalesEntryRow()"
+        (closed)="pendingRemoveIndex = null">
+      </app-confirm-modal>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,135 @@
+<div class="w-100 h-100 d-flex flex-column min-h-0">
+    <!-- Employee List Table -->
+    <div class="card shadow-sm h-100 d-flex flex-column header">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-people"></i> Employee List
+            </h5>
+
+            <div class="d-flex align-items-center gap-2 w-auto">
+                <!-- Location -->
+                <select class="form-select form-select-sm" [(ngModel)]="filterModel.location"
+                    [ngModelOptions]="{ standalone: true }" id="filterLocation" aria-label="Filter by Location">
+                    <option value="">All Locations</option>
+                    <option *ngFor="let loc of locations" [value]="loc">
+                        {{ loc }}
+                    </option>
+                </select>
+
+                <!-- Designation -->
+                <select class="form-select form-select-sm" [(ngModel)]="filterModel.designation"
+                    [ngModelOptions]="{ standalone: true }" id="filterDesignation" aria-label="Filter by Designation"
+                    (ngModelChange)="filterModel.reportTo = ''">
+                    <option *ngFor="let role of employeeRoles" [ngValue]="role">
+                        {{ EmployeeRoleLabels[role] }}
+                    </option>
+                </select>
+
+                <!-- Report To -->
+                <select class="form-select form-select-sm" [(ngModel)]="filterModel.reportTo"
+                    [ngModelOptions]="{ standalone: true }" id="filterReportTo" aria-label="Filter by Report To">
+                    <option value="">All Report To</option>
+                    <option *ngFor="let emp of filteredReportTo" [ngValue]="emp.id">
+                        {{ emp.name }} - {{ EmployeeRoleLabels[emp.designation] }}
+                    </option>
+                </select>
+
+                <!-- Clear Filters -->
+                <button class="btn btn-sm btn-outline-secondary" type="button" (click)="clearFilters()"
+                    title="Clear Filters">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+
+                <!-- Add Employee -->
+                <button class="btn btn-sm btn-primary" type="button" (click)="addNewEmployee()">
+                    <i class="bi bi-plus-lg"></i>
+                    Add Employee
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0 d-flex flex-column flex-fill min-h-0">
+            <div *ngIf="filteredEmployees.length === 0" class="alert alert-info m-3">
+                <i class="bi bi-info-circle"></i> No employees found.
+            </div>
+            <div class="table-responsive employee-table-container" *ngIf="filteredEmployees.length > 0">
+                <table class="table table-sm table-striped table-hover header-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Id</th>
+                            <th>Name</th>
+                            <th>Designation</th>
+                            <th>Location</th>
+                            <th>Report To</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let emp of filteredEmployees; let idx = index">
+                            <ng-container *ngIf="editIndex !== idx; else editRow">
+                                <td>{{ emp.id }}</td>
+                                <td>{{ emp.name }}</td>
+                                <td>{{ EmployeeRoleLabels[emp.designation] }}</td>
+                                <td>{{ emp.location }}</td>
+                                <td>{{ getReportToLabel(emp.reportTo) }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary me-1" type="button" (click)="edit(idx)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" type="button" (click)="delete(idx)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </ng-container>
+                            <ng-template #editRow>
+                                <td>
+                                    <span>{{ emp.id }}</span>
+                                </td>
+                                <td>
+                                    <input type="text" [id]="'employeeName' + idx" class="form-control form-control-sm"
+                                        [(ngModel)]="editModel.name" [attr.name]="'editName' + idx" required
+                                        [ngModelOptions]="{standalone: true}" aria-label="Employee Name">
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" [id]="'employeeDesignation' + idx"
+                                        [(ngModel)]="editModel.designation" [attr.name]="'editDesignation' + idx"
+                                        required aria-label="Employee Designation">
+                                        <option value="">Select Designation</option>
+                                        <option *ngFor="let designation of employeeRoles" [ngValue]="designation">
+                                            {{ EmployeeRoleLabels[designation] }}</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" [id]="'employeeLocation' + idx"
+                                        [(ngModel)]="editModel.location" [attr.name]="'editLoc' + idx"
+                                        [ngModelOptions]="{standalone: true}" aria-label="Employee Location">
+                                        <option value="">Select Location</option>
+                                        <option *ngFor="let loc of locations" [value]="loc">{{ loc }}</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" [id]="'employeeReportTo' + idx"
+                                        [(ngModel)]="editModel.reportTo" [attr.name]="'editReportTo' + idx" required
+                                        aria-label="Employee Report To">
+                                        <option value="">Select Report To</option>
+                                        <option *ngFor="let emp of getUpperRoleEmployees(editModel.designation)"
+                                            [ngValue]="emp.id" [disabled]="emp.id === editModel.id">
+                                            {{ emp.name }} - {{ EmployeeRoleLabels[emp.designation] }}
+                                        </option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-success me-1" type="button" (click)="update(idx)">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" type="button" (click)="cancelEdit()">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </td>
+                            </ng-template>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

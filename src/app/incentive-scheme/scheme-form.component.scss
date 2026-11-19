@@ -1,0 +1,193 @@
+.card-header {
+  background-color: #f8f9fa;
+}
+
+.card {
+  border-left: 4px solid #0d6efd;
+}
+
+.sub-schemes-list {
+  max-height: min(65vh, calc(100dvh - 18rem));
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  scrollbar-gutter: stable;
+}
+
+.sub-scheme-card {
+  cursor: pointer;
+}
+
+.sub-scheme-card input,
+.sub-scheme-card select,
+.sub-scheme-card textarea,
+.sub-scheme-card button,
+.sub-scheme-card summary {
+  cursor: auto;
+}
+
+.sub-scheme-card input[type='number'] {
+  text-align: right;
+}
+
+.sub-scheme-toggle {
+  flex: 0 0 auto;
+  width: 2rem;
+  padding-inline: 0;
+  cursor: pointer;
+}
+
+.sub-scheme-body {
+  max-height: min(65vh, calc(100dvh - 18rem));
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.rank-select {
+  font-weight: 600;
+}
+
+.rank-select.rank-ca {
+  background-color: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e3a8a;
+}
+
+.rank-select.rank-tl {
+  background-color: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.rank-select.rank-sm {
+  background-color: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.rank-select.rank-srsm {
+  background-color: #ffe4e6;
+  border-color: #fda4af;
+  color: #9f1239;
+}
+
+.rank-select.rank-agm {
+  background-color: #f3e8ff;
+  border-color: #d8b4fe;
+  color: #6b21a8;
+}
+
+.rank-select.rank-gm {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+.rank-select.rank-unassigned {
+  background-color: #ffffff;
+}
+
+:host {
+  display: block;
+  overflow: auto;
+  min-height: 0;
+}
+
+.scheme-month-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  background: #f8f9fa;
+}
+
+.scheme-month-field {
+  flex: 0 1 11rem;
+}
+
+.scheme-source-field {
+  flex: 1 1 18rem;
+}
+
+.scheme-name-field {
+  flex: 1 1 16rem;
+}
+
+.scheme-file-field {
+  flex: 1 1 18rem;
+}
+
+.sub-scheme-field {
+  min-width: 0;
+}
+
+.sub-scheme-field-label {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: #6c757d;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.sub-scheme-name-field {
+  flex: 1 1 14rem;
+}
+
+.sub-scheme-type-field {
+  flex: 1 1 13rem;
+}
+
+.sub-scheme-priority-field {
+  flex: 0 1 5rem;
+}
+
+.sub-scheme-card .table th {
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.sub-scheme-card .table td {
+  vertical-align: middle;
+}
+
+.saved-json-panel {
+  padding: 0.75rem 1rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  background: #f8f9fa;
+}
+
+.saved-json {
+  max-height: 22rem;
+  overflow: auto;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  background: #212529;
+  color: #f8f9fa;
+  font-size: 0.8rem;
+}
+
+.sub-scheme-actions {
+  align-self: flex-end;
+  padding-top: 0.9rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .scheme-month-toolbar>div {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .sub-scheme-body {
+    max-height: calc(100dvh - 24rem);
+  }
+
+  .sub-schemes-list {
+    max-height: calc(100dvh - 24rem);
+  }
+}

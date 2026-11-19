@@ -1,0 +1,265 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule } from '@angular/forms';
+import { IncentiveService } from '../core/services/incentive.service';
+import { EmployeeRank, IncentiveScheme, SchemeType, PeriodType } from '../core/models/incentive-scheme.model';
+import { Subject, takeUntil } from 'rxjs';
+
+@Component({
+  selector: 'app-scheme-form',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule],
+  templateUrl: './scheme-form.component.html',
+  styleUrls: ['./scheme-form.component.scss']
+})
+export class SchemeFormComponent implements OnInit, OnDestroy {
+  form!: FormGroup;
+  employeeRanks = Object.values(EmployeeRank);
+  schemeTypes = Object.values(SchemeType);
+  periodTypes = Object.values(PeriodType);
+  existingSchemes: any[] = [];
+  private destroy$ = new Subject<void>();
+
+  constructor(
+    private fb: FormBuilder,
+    private incentiveService: IncentiveService
+  ) { }
+
+  ngOnInit() {
+    this.initForm();
+    this.loadExistingSchemes();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  initForm() {
+    this.form = this.fb.group({
+      id: [''],
+      month: ['', Validators.required],
+      name: ['', Validators.required],
+      active: [true],
+      periodType: [PeriodType.MONTHLY],
+      schemes: this.fb.array([])
+    });
+  }
+
+  loadExistingSchemes() {
+    this.incentiveService.schemes$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(schemes => {
+        this.existingSchemes = schemes.map(s => ({
+          id: s.id,
+          month: s.month,
+          name: s.name,
+          active: s.active,
+          schemeCount: s.schemes?.length || 0
+        }));
+      });
+  }
+
+  loadScheme(schemeId: string) {
+    const schemes = this.incentiveService.getAllSchemes();
+    const scheme = schemes.find(s => s.id === schemeId);
+
+    if (!scheme) {
+      alert('Scheme not found!');
+      return;
+    }
+
+    // Reset form first
+    this.initForm();
+
+    // Set basic scheme details
+    this.form.patchValue({
+      id: scheme.id,
+      month: scheme.month,
+      name: scheme.name,
+      active: scheme.active,
+      periodType: scheme.periodType || PeriodType.MONTHLY
+    });
+
+    // Load sub-schemes
+    if (scheme.schemes && scheme.schemes.length > 0) {
+      const schemesArray = this.form.get('schemes') as FormArray;
+
+      scheme.schemes.forEach((subScheme) => {
+        const subSchemeGroup = this.createSubSchemeGroup();
+
+        // Basic subscheme properties
+        subSchemeGroup.patchValue({
+          name: subScheme.name,
+          type: subScheme.type,
+          priority: subScheme.priority,
+          isActive: subScheme.enabled,
+          applicableRanks: subScheme.applicableRanks || [],
+          applicableLocations: subScheme.location ? [subScheme.location] : []
+        });
+
+        // Set config based on type (simplified - just store as JSON for now)
+        const config = subScheme.volumeConfig || subScheme.modelBonusConfig ||
+          subScheme.targetAchievementConfig || subScheme.locationConfig ||
+          subScheme.accessoriesConfig || subScheme.discountConfig || {};
+
+        subSchemeGroup.patchValue({
+          config: JSON.stringify(config, null, 2)
+
+  createSubSchemeGroup(): FormGroup {
+            return this.fb.group({
+              name: ['', Validators.required],
+              type: [SchemeType.VOLUME_BASED, Validators.required],
+              priority: [1, [Validators.required, Validators.min(1)]],
+              isActive: [true],
+              applicableRanks: [[]],
+              applicableLocations: [[]],
+              config: ['{}', Validators.required] // JSON string representation
+            });
+          }
+
+  addSubScheme() {
+            const subScheme = this.createSubSchemeGroup();
+            // Set default config based on type
+            const defaultConfig = {
+              tiers: [],
+              isStockApplicable: true,
+              stockMultiplier: 1.0,
+              nonStockMultiplier: 0.8
+            };
+            subScheme.patchValue({
+              config: JSON.stringify(defaultConfig, null, 2)
+            });
+            this.schemes.push(subScheme);
+          }
+
+  removeSubScheme(index: number) {
+            if (confirm('Are you sure you want to remove this sub-scheme?')) {
+              this.schemes.removeAt(index);
+            }
+          }
+
+  cloneSubScheme(index: number) {
+            const subScheme = this.schemes.at(index);
+            const clonedSubScheme = this.createSubSchemeGroup();
+
+            const subSchemeValue = { ...subScheme.value };
+            clonedSubScheme.patchValue(subSchemeValue);
+
+            this.schemes.push(clonedSubScheme);
+            console.log('Sub-scheme cloned successfully');
+          }
+
+  save() {
+            // Mark all fields as touched to show validation errors
+            this.form.markAllAsTouched();
+
+            if (this.form.invalid) {
+              alert('Please fill all required fields correctly before saving.');
+              return;
+            }
+
+            if (this.schemes.length === 0) {
+              alert('Please add at least one sub-scheme before saving.');
+              return;
+            }
+
+            // Parse config JSON for each sub-scheme
+            const formValue = this.form.value;
+            const schemeData: IncentiveScheme = {
+              ...formValue,
+              schemes: formValue.schemes.map((s: any) => {
+                try {
+                  return {
+                    ...s,
+                    config: JSON.parse(s.config)
+                  };
+                } catch (e) {
+                  alert(`Invalid JSON in sub-scheme "${s.name}"`);
+                  throw e;
+                }
+              })
+            };
+
+            // Save the scheme
+            this.incentiveService.saveScheme(schemeData);
+
+            alert(`Scheme for ${schemeData.month} saved successfully!`);
+
+            // Reload schemes to show updated list
+            this.loadExistingSchemes();
+          }
+
+  newScheme() {
+            if (this.form.dirty) {
+              if (!confirm('You have unsaved changes. Are you sure you want to create a new scheme?')) {
+                return;
+              }
+            }
+
+            this.initForm();
+            console.log('New scheme form initialized');
+          }
+
+  // Helper method to check if a sub-scheme is valid
+  isSubSchemeValid(index: number): boolean {
+            return this.schemes.at(index).valid;
+          }
+
+  // Helper method to get validation errors for debugging
+  getFormValidationErrors() {
+            const errors: any = {};
+
+            Object.keys(this.form.controls).forEach(key => {
+              const control = this.form.get(key);
+              if (control && control.errors) {
+                errors[key] = control.errors;
+              }
+            });
+
+            this.schemes.controls.forEach((scheme, schemeIndex) => {
+              Object.keys((scheme as FormGroup).controls).forEach(key => {
+                const control = scheme.get(key);
+                if (control && control.errors) {
+                  errors[`scheme_${schemeIndex}_${key}`] = control.errors;
+                }
+              });
+            });
+
+            return errors;
+          }
+
+  // Helper method to export scheme as JSON (for debugging/backup)
+  exportScheme() {
+            if (this.form.get('id')?.value) {
+              const json = this.incentiveService.exportScheme(this.form.get('id')?.value);
+
+              // Create download link
+              const blob = new Blob([json], { type: 'application/json' });
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `scheme_${this.form.get('month')?.value}.json`;
+              link.click();
+              window.URL.revokeObjectURL(url);
+            } else {
+              alert('Please save the scheme first before exporting.');
+            }
+          }
+
+  // Helper to update ranks from input
+  updateRanks(event: Event, index: number) {
+            const target = event.target as HTMLInputElement;
+            const value = target.value;
+            const ranks = value.split(',').map(r => r.trim()).filter(Boolean);
+            this.schemes.at(index).get('applicableRanks')?.setValue(ranks);
+          }
+
+  // Helper to update locations from input
+  updateLocations(event: Event, index: number) {
+            const target = event.target as HTMLInputElement;
+            const value = target.value;
+            const locations = value.split(',').map(l => l.trim()).filter(Boolean);
+            this.schemes.at(index).get('applicableLocations')?.setValue(locations);
+          }
+        }
