@@ -11,6 +11,10 @@ export type IncentiveSale = Partial<SalesEntry & SalesDoc> & {
     employeeName?: string;
     carModel?: string;
     carType?: string;
+    variant?: string;
+    engine?: string;
+    transmission?: string;
+    productId?: string;
     stockAge?: number;
     stockAgeDays?: number;
     units?: number;
@@ -34,6 +38,10 @@ interface Sale {
     source: IncentiveSale;
     model: string;
     type: string;
+    variant: string;
+    engine: string;
+    transmission: string;
+    productId: string;
     location: string;
     units: number;
     stock: boolean;
@@ -98,6 +106,15 @@ function monthOf(value: unknown): string | undefined {
 
 function matchesModels(values: unknown, model: string): boolean {
     return list(values).length === 0 || list(values).some(value => text(value) === text(model));
+}
+
+function matchesSelector(selector: Row, sale: Sale): boolean {
+    return (!text(selector['productId']) || text(selector['productId']) === text(sale.productId))
+        && (!text(selector['model']) || text(selector['model']) === text(sale.model))
+        && (!text(selector['variant']) || text(selector['variant']) === text(sale.variant))
+        && (!text(selector['fuelType']) || text(selector['fuelType']) === text(sale.type))
+        && (!text(selector['engine']) || text(selector['engine']) === text(sale.engine))
+        && (!text(selector['transmission']) || text(selector['transmission']) === text(sale.transmission));
 }
 
 /** Highest lower bound wins; original input order breaks ties without sorting/mutation. */
@@ -212,6 +229,8 @@ export class NewIncentiveCalculationService {
                 return {
                     source, model: source.carModel || source.product || source.parentProductLine || '',
                     type: source.carType ?? '', location: source.location ?? '', units: Math.max(0, rawUnits ?? 1), age,
+                    variant: source.variant ?? '', engine: source.engine ?? '', transmission: source.transmission ?? '',
+                    productId: source.productId ?? '',
                     stock: typeof source.isStock === 'boolean' ? source.isStock
                         : invoice !== undefined && stocked !== undefined && stocked <= invoice
                 };
@@ -262,13 +281,26 @@ export class NewIncentiveCalculationService {
             const handlers: Partial<Record<SchemeType, () => void>> = {
                 [SchemeType.VOLUME_BASED]: () => {
                     field = 'volumeIncentive';
-                    const tier = highest(ranked(getTiers()), 'minVolume', row => units > 0
-                        && units >= (number(row['minVolume']) ?? Infinity) && units <= (number(row['maxVolume']) ?? -Infinity));
-                    if (tier) amount = selectedSales.reduce((sum, sale) => sum + sale.units * (
-                        config['applyStockDifferential'] === true && !sale.stock
-                            ? number(tier['incentiveAmountNonStock']) ?? number(tier['incentiveAmount']) ?? 0
-                            : number(tier['incentiveAmount']) ?? 0), 0);
-                    details = `${units} eligible units; highest inclusive volume tier; rate paid per unit.`;
+                    const tabs = rows(config['modelTabs']);
+                    const volumeConfigs = tabs.length ? tabs : [config];
+                    const volumeSales = tabs.length ? eligibleSales : selectedSales;
+                    for (const volumeConfig of volumeConfigs) {
+                        const tabSales = volumeSales.filter(sale =>
+                            matchesModels(volumeConfig['carModels'], sale.model)
+                            && matchesModels(volumeConfig['carTypes'], sale.type));
+                        const selectors = rows(volumeConfig['selectors']);
+                        const matchedSales = selectors.length
+                            ? tabSales.filter(sale => selectors.some(selector => matchesSelector(selector, sale)))
+                            : tabSales;
+                        const tabUnits = sumUnits(matchedSales);
+                        const tier = highest(ranked(rows(volumeConfig['tiers'])), 'minVolume', row => tabUnits > 0
+                            && tabUnits >= (number(row['minVolume']) ?? Infinity) && tabUnits <= (number(row['maxVolume']) ?? -Infinity));
+                        if (tier) amount += matchedSales.reduce((sum, sale) => sum + sale.units * (
+                            volumeConfig['applyStockDifferential'] === true && !sale.stock
+                                ? number(tier['incentiveAmountNonStock']) ?? number(tier['incentiveAmount']) ?? 0
+                                : number(tier['incentiveAmount']) ?? 0), 0);
+                    }
+                    details = `${units} eligible units; each model tab uses its highest inclusive volume tier; rate paid per unit.`;
                 },
                 [SchemeType.MODEL_BONUS]: () => {
                     field = 'modelBonusIncentive';

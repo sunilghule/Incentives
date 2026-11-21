@@ -3,9 +3,11 @@ export interface Product {
     model: string;
     variant: string;
     type: ProductType;
-    category: string;
+    productLine?: string;
     engine: string;
     transmission: string;
+    /** Legacy seed data only; not persisted or displayed. */
+    category?: string;
 }
 
 export enum ProductType {

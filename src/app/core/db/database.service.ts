@@ -1,9 +1,10 @@
 import { Injectable, inject, isDevMode } from '@angular/core';
 import { addRxPlugin, createRxDatabase, RxStorage } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { ProductService } from '../services/product.service';
 import {
-    AppCollections, AppDatabase, dynamicEntrySchema, employeeSchema, productSchema, salesSchema, SchemeDoc, schemeSchema
+    AppCollections, AppDatabase, dynamicEntrySchema, employeeSchema, productSchema, salesSchema, SchemeDoc, schemeSchema, SalesDoc
 } from './schemas';
 import { buildSeedData, DUMMY_EMPLOYEES } from './seed-data';
 import { DEFAULT_EMPLOYEES } from '../../services/employee.service';
@@ -27,6 +28,7 @@ export class DatabaseService {
             return;
         }
 
+        addRxPlugin(RxDBMigrationSchemaPlugin);
         let storage: RxStorage<unknown, unknown> = getRxStorageDexie();
 
         if (isDevMode()) {
@@ -47,7 +49,16 @@ export class DatabaseService {
         });
 
         await this.database.addCollections({
-            sales: { schema: salesSchema },
+            sales: {
+                schema: salesSchema,
+                migrationStrategies: {
+                    1: oldDocument => {
+                        const { debitNoteNumber: _debitNoteNumber, debitNoteDate: _debitNoteDate, ...retained } =
+                            oldDocument as SalesDoc & { debitNoteNumber?: string; debitNoteDate?: string };
+                        return retained;
+                    }
+                }
+            },
             warranty: { schema: dynamicEntrySchema },
             accessory: { schema: dynamicEntrySchema },
             employees: { schema: employeeSchema },
@@ -55,6 +66,7 @@ export class DatabaseService {
             schemes: { schema: schemeSchema }
         });
 
+        await this.database.sales.getMigrationState().migratePromise();
         await this.seed(this.database);
     }
 
@@ -74,7 +86,15 @@ export class DatabaseService {
         }
 
         if (await db.products.count().exec() === 0) {
-            await db.products.bulkInsert(products.map(product => ({ ...product, type: Number(product.type) })));
+            await db.products.bulkInsert(products.map(product => ({
+                id: product.id,
+                model: product.model,
+                variant: product.variant,
+                type: Number(product.type),
+                category: product.category ?? '',
+                engine: product.engine,
+                transmission: product.transmission
+            })));
         }
 
         const seed = buildSeedData(employees, [...new Set(products.map(p => p.model))]);

@@ -4,11 +4,9 @@ export interface SalesEntry {
     invoiceDate: string;         // Invoice Date
     stockDate: string;           // Stock Date
     invoiceNumber: string;       // Invoice Number
-    debitNoteNumber: string;     // Debit Note Number
-    debitNoteDate: string;       // Debit Note Date
     chassisNo: string;           // Chassis No
     engineNo: string;            // Engine No.
-    product: string;                // Parent Product Line
+    product: string;             // Model
     ca: string;                  // ca
     tl: string;                  // tl
     location: string;            // location

@@ -52,8 +52,6 @@
                   <th class="excel-header">Invoice No</th>
                   <th class="excel-header">Invoice Date</th>
                   <th class="excel-header">Stock Date</th>
-                  <th class="excel-header">Debit Note No</th>
-                  <th class="excel-header">Debit Note Date</th>
                   <th class="excel-header">Chassis No</th>
                   <th class="excel-header">Engine No</th>
                   <th class="excel-header">Product Model</th>
@@ -115,16 +113,6 @@
                   </td>
 
                   <td>
-                    <input type="text" id="debitNoteNumber_{{ i }}" class="form-control excel-cell"
-                      formControlName="debitNoteNumber">
-                  </td>
-
-                  <td>
-                    <input type="date" id="debitNoteDate_{{ i }}" class="form-control excel-cell"
-                      formControlName="debitNoteDate">
-                  </td>
-
-                  <td>
                     <input type="text" id="chassisNo_{{ i }}" class="form-control excel-cell"
                       formControlName="chassisNo">
                   </td>
@@ -170,7 +158,7 @@
                 </tr>
 
                 <tr *ngIf="!hasVisibleRows()">
-                  <td colspan="13" class="text-center text-muted py-4">
+                  <td colspan="11" class="text-center text-muted py-4">
                     No sales entries available.
                   </td>
                 </tr>

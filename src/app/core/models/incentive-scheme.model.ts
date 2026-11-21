@@ -83,13 +83,33 @@ export interface SubScheme {
 export interface VolumeSchemeConfig {
   tiers: VolumeTier[];
   carModels?: string[];
+  selectors?: VolumeModelSelector[];
   carTypes?: string[];
   carModel?: string; // optional: specific model
   carType?: CarType; // optional: specific type
   applyStockDifferential?: boolean;
+  modelTabs?: VolumeModelTab[];
+}
+
+export interface VolumeModelSelector {
+  model?: string;
+  productId?: string;
+  variant?: string;
+  fuelType?: string;
+  engine?: string;
+  transmission?: string;
+}
+
+export interface VolumeModelTab {
+  carModels: string[];
+  selectors?: VolumeModelSelector[];
+  carTypes?: string[];
+  applyStockDifferential?: boolean;
+  tiers: VolumeTier[];
 }
 
 export interface VolumeTier {
+  slab?: string;
   rank?: string | EmployeeRole;
   minVolume: number;
   maxVolume: number;
@@ -107,6 +127,7 @@ export interface ModelBonusConfig {
 }
 
 export interface ModelBonus {
+  slab?: string;
   rank?: string; // optional: specific rank (empty = all ranks)
   carModels?: string[]; // optional: specific car models (empty array = all models)
   numberOfCars: number; // number of cars to be sold
@@ -121,6 +142,7 @@ export interface ModelBonus {
 export type TargetAchievementCategory = 'Finance' | 'Extended Warranty';
 
 export interface TargetAchievementTier {
+  slab?: string;
   category: TargetAchievementCategory;
   rank?: string | EmployeeRole;
   requiredAchievementPercent: number;
@@ -146,6 +168,7 @@ export interface LocationTargetConfig {
 }
 
 export interface LocationTarget {
+  slab?: string;
   location: string;
   rank?: string | EmployeeRole;
   targetUnits: number;
@@ -164,6 +187,7 @@ export interface AccessoriesConfig {
 }
 
 export interface AccessoryTier {
+  slab?: string;
   rank?: string; // optional: specific rank (empty = all ranks)
   amount: number; // accessory sales amount
   incentiveAmount?: number; // fixed incentive for the selected slab
@@ -198,6 +222,7 @@ export interface StockReductionConfig {
 }
 
 export interface StockReductionTier {
+  slab?: string;
   rank?: string; // optional: specific rank (empty = all ranks)
   minStockDays: number; // minimum stock aging in days
   maxStockDays: number; // maximum stock aging in days

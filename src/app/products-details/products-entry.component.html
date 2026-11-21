@@ -6,6 +6,10 @@
             </h5>
 
             <div class="d-flex align-items-center gap-2">
+                <input type="text" id="filterProductLine" aria-label="Filter by Product Line"
+                    class="form-control form-control-sm" placeholder="Product Line"
+                    [(ngModel)]="filterModel.productLine" [ngModelOptions]="{standalone: true}">
+
                 <input type="text" id="filterModelInput" aria-label="Filter by Model"
                     class="form-control form-control-sm" placeholder="Model" [(ngModel)]="filterModel.model"
                     [ngModelOptions]="{standalone: true}">
@@ -22,12 +26,12 @@
                     </option>
                 </select>
 
-                <input type="text" id="filterCategory" aria-label="Filter by Category"
-                    class="form-control form-control-sm" placeholder="Category" [(ngModel)]="filterModel.category"
-                    [ngModelOptions]="{standalone: true}">
-
                 <button id="clearFiltersButton" class="btn btn-sm btn-secondary" type="button" (click)="clearFilters()">
                     <i class="bi bi-x-circle"></i> Clear
+                </button>
+                <button class="btn btn-sm btn-primary" type="button" (click)="addNewProduct()"
+                    [disabled]="editIndex !== null">
+                    <i class="bi bi-plus-lg"></i> Add Product
                 </button>
             </div>
         </div>
@@ -42,7 +46,7 @@
                             <th>Model</th>
                             <th>Variant</th>
                             <th>Type</th>
-                            <th>Category</th>
+                            <th>Product Line</th>
                             <th>Engine</th>
                             <th>Transmission</th>
                             <th style="width: 120px;">Actions</th>
@@ -50,18 +54,20 @@
                     </thead>
                     <tbody>
                         <tr *ngFor="let product of filteredProducts; let idx = index">
-                            <ng-container *ngIf="editIndex !== idx; else editRow">
+                            <ng-container *ngIf="editIndex !== getProductIndex(product); else editRow">
                                 <td>{{ product.model }}</td>
                                 <td>{{ product.variant }}</td>
                                 <td>{{ productTypeLabels[product.type] }}</td>
-                                <td>{{ product.category }}</td>
+                                <td>{{ product.productLine || createProductLine(product) }}</td>
                                 <td>{{ product.engine }}</td>
                                 <td>{{ product.transmission }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-primary me-1" type="button" (click)="edit(idx)">
+                                    <button class="btn btn-sm btn-primary me-1" type="button"
+                                        (click)="edit(getProductIndex(product))" [disabled]="editIndex !== null">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-danger" type="button" (click)="delete(idx)">
+                                    <button class="btn btn-sm btn-danger" type="button"
+                                        (click)="delete(getProductIndex(product))" [disabled]="editIndex !== null">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </td>
@@ -86,22 +92,19 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <input type="text" id="productCategory{{idx}}" class="form-control form-control-sm"
-                                        [(ngModel)]="editProduct.category" [attr.name]="'editCategory' + idx"
-                                        [ngModelOptions]="{standalone: true}">
+                                    <input type="text" id="productTransmission{{idx}}"
+                                        class="form-control form-control-sm" [(ngModel)]="editProduct.transmission"
+                                        [attr.name]="'editTransmission' + idx" [ngModelOptions]="{standalone: true}">
                                 </td>
                                 <td>
                                     <input type="text" id="productEngine{{idx}}" class="form-control form-control-sm"
                                         [(ngModel)]="editProduct.engine" [attr.name]="'editEngine' + idx"
                                         [ngModelOptions]="{standalone: true}">
                                 </td>
+                                <td>{{ createProductLine(editProduct) }}</td>
                                 <td>
-                                    <input type="text" id="productTransmission{{idx}}"
-                                        class="form-control form-control-sm" [(ngModel)]="editProduct.transmission"
-                                        [attr.name]="'editTransmission' + idx" [ngModelOptions]="{standalone: true}">
-                                </td>
-                                <td>
-                                    <button class="btn btn-sm btn-success me-1" type="button" (click)="update(idx)">
+                                    <button class="btn btn-sm btn-success me-1" type="button"
+                                        (click)="update(getProductIndex(product))">
                                         <i class="bi bi-check-lg"></i>
                                     </button>
                                     <button class="btn btn-sm btn-secondary" type="button" (click)="cancelEdit()">

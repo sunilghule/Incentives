@@ -6,8 +6,6 @@ export interface SalesDoc {
     invoiceNumber: string;
     invoiceDate: string;
     stockDate: string;
-    debitNoteNumber: string;
-    debitNoteDate: string;
     chassisNo: string;
     engineNo: string;
     parentProductLine: string;
@@ -64,13 +62,13 @@ const month = { type: 'string', maxLength: 7 } as const;
 const text = { type: 'string' } as const;
 
 export const salesSchema: RxJsonSchema<SalesDoc> = {
-    version: 0,
+    version: 1,
     primaryKey: 'id',
     type: 'object',
     properties: {
         id, month,
         invoiceNumber: text, invoiceDate: text, stockDate: text,
-        debitNoteNumber: text, debitNoteDate: text, chassisNo: text,
+        chassisNo: text,
         engineNo: text, parentProductLine: text, ca: text, tl: text,
         location: text, tmInvoiceDate: text
     },

@@ -6,6 +6,7 @@ import { Employee, EmployeeRole } from '../models/employee.model';
 import { CarType, IncentiveScheme, SchemeType, SubScheme, TargetType } from '../models/incentive-scheme.model';
 import { IncentiveCalculationService } from './incentive-calculation.service';
 import { IncentiveSale, NewIncentiveCalculationService } from './new-incentive-calculation.service';
+import { SchemeWorkbook } from '../../shared/helper/scheme-workbook';
 
 const month = '2026-10';
 const ca: Employee = { id: 'ca1', name: 'Alice Associate', designation: EmployeeRole.CA, reportTo: 'tl1' };
@@ -407,5 +408,26 @@ describe('NewIncentiveCalculationService', () => {
             [accessory('30000')], people, { targetUnits: 1 }] as const;
         expect(facade.calculate(...args)).toEqual(engine.calculate(...args));
         injector.destroy();
+    });
+
+    it('matches generic and exact volume product metadata selectors', () => {
+        const selectors = SchemeWorkbook.dummy();
+        selectors.schemes[0].volumeConfig = {
+            tiers: [],
+            modelTabs: [{
+                carModels: [], carTypes: [], selectors: [{ model: 'Nexon', fuelType: 'Petrol', variant: 'Smart', engine: '1.2' }],
+                tiers: [{ rank: 'CA', minVolume: 1, maxVolume: 10, incentiveAmount: 100 }]
+            }]
+        };
+        const matching = [{
+            id: 'specific', invoiceDate: `${month}-15`, ca: ca.id, carModel: 'Nexon', carType: 'Petrol',
+            variant: 'Smart', engine: '1.2', transmission: 'Manual'
+        }];
+        const nonMatching = [{
+            id: 'other', invoiceDate: `${month}-15`, ca: ca.id, carModel: 'Nexon', carType: 'Diesel',
+            variant: 'Smart', engine: '1.5', transmission: 'Manual'
+        }];
+        expect(engine.calculate(ca, month, selectors, matching).totalIncentive).toBe(100);
+        expect(engine.calculate(ca, month, selectors, nonMatching).totalIncentive).toBe(0);
     });
 });

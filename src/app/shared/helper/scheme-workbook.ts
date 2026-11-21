@@ -172,6 +172,7 @@ function readVolume(row: Data, context: string): Data {
 
 function readFlat(row: Data, type: SchemeType, context: string): { config: Data; tiers: Data[] } {
     const tier: Data = {};
+    if (!blank(row['slab'])) tier['slab'] = text(row['slab'], `${context} slab`);
     for (const [field, column] of Object.entries(layouts[type].fields ?? {})) {
         const optional = field === 'incentiveAmountNonStock'
             || (type === SchemeType.ACCESSORIES && ['incentiveAmount', 'incentivePercent'].includes(field))
@@ -317,6 +318,7 @@ function validateConfig(config: Data, type: SchemeType, context: string): void {
 }
 
 function validateTier(tier: Data, type: SchemeType, context: string): void {
+    if (tier['slab'] !== undefined) text(tier['slab'], `${context} slab`);
     const fields = [...requiredNumbers[type], ...(optionalNumbers[type] ?? []).filter(field => tier[field] !== undefined)];
     for (const field of fields) {
         const positive = ['numberOfCars', 'saleTarget', 'targetUnits'].includes(field)
@@ -377,6 +379,22 @@ function validateSub(sub: Data, context: string, nextRow: number, origin?: Origi
     numeric(sub['priority'], `${at} priority`);
     const config = object(sub[layout.config], `${at} ${layout.config}`);
     validateConfig(config, type, at);
+    const modelTabs = config['modelTabs'];
+    if (type === SchemeType.VOLUME_BASED && modelTabs !== undefined) {
+        if (!Array.isArray(modelTabs) || !modelTabs.length) return fail(at, 'modelTabs must be a nonempty list');
+        modelTabs.forEach((value, tabIndex) => {
+            const tab = object(value, `${at} model tab ${tabIndex + 1}`);
+            validateConfig(tab, type, `${at} model tab ${tabIndex + 1}`);
+            const tabTiers: unknown[] = Array.isArray(tab['tiers']) ? tab['tiers'] : [];
+            if (!tabTiers.length) fail(`${at} model tab ${tabIndex + 1}`, 'must contain nonempty tiers');
+            const ranges: Range[] = [];
+            tabTiers.forEach((tier, tierIndex) => {
+                const row = object(tier, `${at} model tab ${tabIndex + 1}, tier ${tierIndex + 1}`);
+                validateTier(row, type, `${at} model tab ${tabIndex + 1}, tier ${tierIndex + 1}`);
+                validateRange(row, type, `${at} model tab ${tabIndex + 1}, tier ${tierIndex + 1}`, ranges);
+            });
+        });
+    }
     const values = layout.tiers ? config[layout.tiers] : [config];
     if (!Array.isArray(values) || !values.length) return fail(at, 'configuration must contain nonempty tiers');
     const ranges: Range[] = [];
@@ -424,6 +442,7 @@ function putDescription(row: Cells, column: string, value: string | undefined): 
 
 function writeFlat(row: Cells, tier: Data, config: Data, type: SchemeType): void {
     for (const [field, column] of Object.entries(layouts[type].fields ?? {})) put(row, column, tier[field]);
+    put(row, 'slab', tier['slab']);
     put(row, 'rank', tier['rank']);
     putDescription(row, 'tier description', tier['description'] as string | undefined);
     if (type === SchemeType.TARGET_ACHIEVEMENT) put(row, 'per car value', tier['perCarValue']);

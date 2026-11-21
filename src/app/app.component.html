@@ -18,7 +18,8 @@
       <li class="nav-item" *ngFor="let item of sidebarItems">
         <a class="nav-link text-white d-flex align-items-center justify-content-center" [routerLink]="item.link"
           routerLinkActive="active fw-bold">
-          <span [ngClass]="item.icon" [title]="item.tooltip" aria-hidden="true" style="font-size: 1.5rem; display:inline-block;"></span>
+          <span [ngClass]="item.icon" [title]="item.tooltip" aria-hidden="true"
+            style="font-size: 1.5rem; display:inline-block;"></span>
           <span *ngIf="!collapsed" class="ms-2">{{ item.label }}</span>
         </a>
       </li>
@@ -30,3 +31,5 @@
     <router-outlet></router-outlet>
   </main>
 </div>
+
+<app-toast></app-toast>

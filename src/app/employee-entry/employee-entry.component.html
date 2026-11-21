@@ -64,30 +64,44 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr *ngFor="let emp of filteredEmployees; let idx = index">
-                            <ng-container *ngIf="editIndex !== idx; else editRow">
+                        <tr *ngFor="let emp of filteredEmployees; let idx = index" #employeeRow>
+                            <ng-container *ngIf="editIndex !== getEmployeeIndex(emp); else editRow">
                                 <td>{{ emp.id }}</td>
                                 <td>{{ emp.name }}</td>
                                 <td>{{ EmployeeRoleLabels[emp.designation] }}</td>
                                 <td>{{ emp.location }}</td>
                                 <td>{{ getReportToLabel(emp.reportTo) }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-primary me-1" type="button" (click)="edit(idx)">
+                                    <button class="btn btn-sm btn-primary me-1" type="button"
+                                        (click)="edit(getEmployeeIndex(emp))" [disabled]="editIndex !== null">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-danger" type="button" (click)="delete(idx)">
+                                    <button class="btn btn-sm btn-danger" type="button"
+                                        (click)="delete(getEmployeeIndex(emp))" [disabled]="editIndex !== null">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </td>
                             </ng-container>
                             <ng-template #editRow>
                                 <td>
-                                    <span>{{ emp.id }}</span>
+                                    <span [class.text-danger]="!isEmployeeIdUnique(getEmployeeIndex(emp))">
+                                        {{ emp.id || editModel.id }}
+                                    </span>
+                                    <div class="small text-danger" *ngIf="!isEmployeeIdUnique(getEmployeeIndex(emp))">
+                                        Employee ID is not unique.
+                                    </div>
                                 </td>
                                 <td>
                                     <input type="text" [id]="'employeeName' + idx" class="form-control form-control-sm"
                                         [(ngModel)]="editModel.name" [attr.name]="'editName' + idx" required
-                                        [ngModelOptions]="{standalone: true}" aria-label="Employee Name">
+                                        [class.is-invalid]="!isValidEmployeeName(editModel.name)"
+                                        (ngModelChange)="updateNewEmployeeId(getEmployeeIndex(emp))"
+                                        [ngModelOptions]="{standalone: true}" aria-label="Employee Name"
+                                        placeholder="Name Surname">
+                                    <div class="small text-danger" role="alert"
+                                        [class.d-none]="isValidEmployeeName(editModel.name)">
+                                        Enter name and surname separated by a space.
+                                    </div>
                                 </td>
                                 <td>
                                     <select class="form-select form-select-sm" [id]="'employeeDesignation' + idx"
@@ -118,7 +132,9 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-success me-1" type="button" (click)="update(idx)">
+                                    <button class="btn btn-sm btn-success me-1" type="button"
+                                        (click)="update(getEmployeeIndex(emp))" [disabled]="!isValidEmployeeName(editModel.name)
+                                            || !isEmployeeIdUnique(getEmployeeIndex(emp))">
                                         <i class="bi bi-check-lg"></i>
                                     </button>
                                     <button class="btn btn-sm btn-secondary" type="button" (click)="cancelEdit()">

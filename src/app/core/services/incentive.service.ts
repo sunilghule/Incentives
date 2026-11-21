@@ -101,7 +101,7 @@ export class IncentiveService {
   saveSalesEntry(entry: SalesEntry): void {
     // Ensure all required fields for the new model are present
     const requiredFields = [
-      'invoiceDate', 'stockDate', 'invoiceNumber', 'debitNoteNumber', 'debitNoteDate',
+      'invoiceDate', 'stockDate', 'invoiceNumber',
       'chassisNo', 'engineNo', 'parentProductLine', 'ca', 'tl', 'location', 'sm',
       'tmInvoiceDate', 'stockAgeing', 'club'
     ];
@@ -231,8 +231,6 @@ export class IncentiveService {
       invoiceNumber: value.invoiceNumber ?? '',
       invoiceDate: value.invoiceDate ?? '',
       stockDate: value.stockDate ?? '',
-      debitNoteNumber: value.debitNoteNumber ?? '',
-      debitNoteDate: value.debitNoteDate ?? '',
       chassisNo: value.chassisNo ?? '',
       engineNo: value.engineNo ?? '',
       parentProductLine: value.parentProductLine ?? value.product ?? '',

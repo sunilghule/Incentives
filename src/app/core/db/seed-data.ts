@@ -80,8 +80,6 @@ export function buildSeedData(employees: Employee[], productModels: string[], to
                     invoiceNumber: `INV${month.replace('-', '')}${seq}`,
                     invoiceDate: dateIn(day),
                     stockDate: dateIn(Math.max(1, day - 5)),
-                    debitNoteNumber: `DN${seq}`,
-                    debitNoteDate: dateIn(day),
                     chassisNo,
                     engineNo: `ENG${seq}`,
                     parentProductLine: pick(productModels),

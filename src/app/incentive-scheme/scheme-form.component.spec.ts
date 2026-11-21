@@ -139,6 +139,8 @@ describe('SchemeFormComponent', () => {
         expect(component.isSubSchemeExpanded(subScheme)).toBe(true);
         component.toggleSubScheme(subScheme);
         expect(component.isSubSchemeExpanded(subScheme)).toBe(false);
+        component.toggleSubScheme(subScheme);
+        expect(component.isSubSchemeExpanded(subScheme)).toBe(true);
     });
 
     it('duplicates only the last rank rows for the next available higher rank', () => {
@@ -239,6 +241,10 @@ describe('SchemeFormComponent', () => {
         result.schemes[1].modelBonusConfig!.bonuses[0].carModels!.push('Changed');
         expect(component.form.get('locations')?.value).toEqual(['Pune', 'Mumbai']);
         expect(component.getModelBonusTiers(1).at(0).get('carModels')?.value).toEqual(['Swift']);
+        source.schemes[0].volumeConfig!.tiers.push({ rank: 'CA', minVolume: 10, maxVolume: 20, incentiveAmount: 3000 });
+        expect(component.getTiers(0).at(2).getRawValue()).toMatchObject({
+            rank: 'CA', minVolume: 10, maxVolume: 20, incentiveAmount: 3000
+        });
         expect(source).toEqual(before);
     });
 
@@ -346,6 +352,7 @@ describe('SchemeFormComponent', () => {
         expect(copy).not.toHaveProperty('updatedDate');
         expect(copy.schemes).toEqual(originalDraft.schemes.map(({ id: _id, ...sub }) => sub));
         expect(copy.locations).toEqual(before.locations);
+        component.form.patchValue({ name: 'Monthly copy' });
         expect(component.form.dirty).toBe(true);
         expect(component.status()).toContain('UNSAVED draft');
         expect(service.saveScheme).not.toHaveBeenCalled();
@@ -415,6 +422,77 @@ describe('SchemeFormComponent', () => {
         });
     });
 
+    it('copies volume scheme details into a separate model tab without adding another sub-scheme', () => {
+        component.form.patchValue({ month: '2026-11' });
+        component.addSubScheme();
+        const firstTier = component.getTiers(0).at(0);
+        firstTier.patchValue({ minVolume: 1, maxVolume: 3, incentiveAmount: 1500, description: 'Copied tier' });
+        component.schemes.at(0).patchValue({ carTypes: ['Petrol'], applyStockDifferential: true });
+
+        component.createVolumeModelTab(0, 'Baleno');
+        component.createVolumeModelTab(0, 'Swift');
+
+        expect(component.schemes).toHaveLength(1);
+        expect(component.getVolumeTabs(0)).toHaveLength(2);
+        expect(component.getVolumeTabs(0)[0].get('carModels')?.value).toEqual(['Baleno']);
+        expect(component.getVolumeTabs(0)[1].get('carModels')?.value).toEqual(['Swift']);
+        expect(component.getTiers(0).getRawValue()).toEqual([
+            { rank: 'CA', minVolume: 1, maxVolume: 3, incentiveAmount: 1500, incentiveAmountNonStock: null, description: 'Copied tier' }
+        ]);
+        component.getTiers(0).at(0).patchValue({ incentiveAmount: 2500 });
+        const tabs = component.buildScheme().schemes[0].volumeConfig!.modelTabs!;
+        expect(tabs[0].tiers[0].incentiveAmount).toBe(1500);
+        expect(tabs[1].tiers[0].incentiveAmount).toBe(2500);
+        expect(tabs.every(tab => tab.carTypes?.includes('Petrol') && tab.applyStockDifferential)).toBe(true);
+    });
+
+    it('restores and switches copied volume model tabs with independent tier arrays', () => {
+        const source = SchemeWorkbook.dummy();
+        source.schemes[0].volumeConfig!.modelTabs = [
+            { carModels: ['Swift'], carTypes: ['Petrol'], applyStockDifferential: false, tiers: [{ rank: 'CA', minVolume: 1, maxVolume: 2, incentiveAmount: 1000 }] },
+            { carModels: ['Baleno'], carTypes: ['Diesel'], applyStockDifferential: true, tiers: [{ rank: 'CA', minVolume: 1, maxVolume: 2, incentiveAmount: 2000 }] }
+        ];
+        load(source);
+
+        expect(component.getTiers(0).at(0).get('incentiveAmount')?.value).toBe(1000);
+        component.activateVolumeTab(0, 1);
+        expect(component.getTiers(0).at(0).get('incentiveAmount')?.value).toBe(2000);
+        expect(component.schemes.at(0).get('applyStockDifferential')?.value).toBe(true);
+        component.activateVolumeTab(0, 0);
+        expect(component.getTiers(0).at(0).get('incentiveAmount')?.value).toBe(1000);
+    });
+
+    it('deletes a volume tab only after confirmation and keeps the nearest tab active', () => {
+        const source = SchemeWorkbook.dummy();
+        source.schemes[0].volumeConfig!.modelTabs = [
+            { carModels: ['Swift'], tiers: [{ rank: 'CA', minVolume: 1, maxVolume: 2, incentiveAmount: 1000 }] },
+            { carModels: ['Baleno'], tiers: [{ rank: 'CA', minVolume: 1, maxVolume: 2, incentiveAmount: 2000 }] },
+            { carModels: ['Nexon'], tiers: [{ rank: 'CA', minVolume: 1, maxVolume: 2, incentiveAmount: 3000 }] }
+        ];
+        load(source);
+        component.activateVolumeTab(0, 2);
+        component.removeVolumeTab(0, 2);
+        expect(globalThis.confirm).toHaveBeenCalledWith(expect.stringContaining('Nexon'));
+        expect(component.getVolumeTabs(0)).toHaveLength(2);
+        expect(component.getActiveVolumeTabIndex(0)).toBe(1);
+        expect(component.getTiers(0).at(0).get('incentiveAmount')?.value).toBe(2000);
+    });
+
+    it('keeps a volume tab when deletion is cancelled or only one tab remains', () => {
+        component.form.patchValue({ month: '2026-11' });
+        component.addSubScheme();
+        component.copySelectorToNewVolumeTab(0, 'Swift');
+        vi.mocked(globalThis.confirm).mockReturnValue(false);
+        component.removeVolumeTab(0, 1);
+        expect(component.getVolumeTabs(0)).toHaveLength(2);
+        vi.mocked(globalThis.confirm).mockReturnValue(true);
+        component.removeVolumeTab(0, 1);
+        expect(component.getVolumeTabs(0)).toHaveLength(1);
+        component.removeVolumeTab(0, 0);
+        expect(component.getVolumeTabs(0)).toHaveLength(1);
+        expect(component.canRemoveVolumeTab(0)).toBe(false);
+    });
+
     it.each(arrayCases)('deep-clones sub-scheme %i and its %s array (%i rows)', (index, key, length) => {
         const source = load();
         const sourceBefore = structuredClone(source);
@@ -468,7 +546,7 @@ describe('SchemeFormComponent', () => {
         expect(component.buildScheme()).not.toHaveProperty('updatedDate');
         expect(component.buildScheme().schemes.every(sub => sub.id === undefined)).toBe(true);
         expect(component.form.dirty).toBe(true);
-        expect(component.busy()).toBe(false);
+        expect(component.busy).toBe(false);
         expect(component.error()).toBe('');
         expect(component.status()).toBe('Spreadsheet imported into 2026-11 as an UNSAVED draft. Review then Save.');
         expect(input.value).toBe('');

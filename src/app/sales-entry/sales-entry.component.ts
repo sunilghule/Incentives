@@ -497,8 +497,6 @@ export class SalesEntryComponent implements OnInit, OnDestroy {
         invoiceNumber,
         invoiceDate,
         stockDate: this.excelDateToInputDate(row['stock date']),
-        debitNoteNumber: this.excelText(row['debit note number']),
-        debitNoteDate: this.excelDateToInputDate(row['debit note date']),
         chassisNo: this.excelText(row['chassis no']),
         engineNo: this.excelText(row['engine no.']),
         product: this.excelText(row['parent product line']),
@@ -612,16 +610,6 @@ export class SalesEntryComponent implements OnInit, OnDestroy {
 
       stockDate: [
         entry?.stockDate ?? '',
-        Validators.required
-      ],
-
-      debitNoteNumber: [
-        entry?.debitNoteNumber ?? '',
-        Validators.required
-      ],
-
-      debitNoteDate: [
-        entry?.debitNoteDate ?? '',
         Validators.required
       ],
 

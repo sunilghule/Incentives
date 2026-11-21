@@ -21,14 +21,14 @@ export class ProductsEntryComponent implements OnInit {
     productTypes = Object.values(ProductType).filter((type): type is ProductType => typeof type === 'number');
     productTypeLabels = ProductType;
     products: Product[] = [];
-    newProduct: Product = { id: '', model: '', variant: '', type: ProductType.PETROL, category: '', engine: '', transmission: '' };
+    newProduct: Product = this.emptyProduct();
     editIndex: number | null = null;
-    editProduct: Product = { id: '', model: '', variant: '', type: ProductType.PETROL, category: '', engine: '', transmission: '' };
-    filterModel: { model: string; variant: string; type: ProductType | null; category: string } = {
+    editProduct: Product = this.emptyProduct();
+    filterModel: { productLine: string; model: string; variant: string; type: ProductType | null } = {
+        productLine: '',
         model: '',
         variant: '',
-        type: null,
-        category: ''
+        type: null
     };
 
     ngOnInit(): void {
@@ -37,7 +37,8 @@ export class ProductsEntryComponent implements OnInit {
             .subscribe(docs => {
                 this.products = docs.map(doc => {
                     const data = doc.toMutableJSON();
-                    return { ...data, type: data.type as ProductType };
+                    const product = { ...data, type: data.type as ProductType };
+                    return { ...product, productLine: this.createProductLine(product) };
                 });
                 // RxDB emits outside Angular's zone, so refresh the view explicitly.
                 this.changeDetectorRef.detectChanges();
@@ -46,17 +47,22 @@ export class ProductsEntryComponent implements OnInit {
 
     clearFilters(): void {
         this.filterModel = {
+            productLine: '',
             model: '',
             variant: '',
-            type: null,
-            category: ''
+            type: null
         };
     }
 
     addNewProduct() {
-        if (!this.newProduct.model || !this.newProduct.variant || !this.newProduct.type) return;
-        this.saveProduct({ ...this.newProduct, id: crypto.randomUUID() });
-        this.newProduct = { id: '', model: '', variant: '', type: ProductType.PETROL, category: '', engine: '', transmission: '' };
+        if (this.editIndex !== null) return;
+        const product = this.emptyProduct();
+        this.products.push(product);
+        this.edit(this.products.length - 1);
+    }
+
+    getProductIndex(product: Product): number {
+        return this.products.indexOf(product);
     }
 
     edit(idx: number) {
@@ -66,8 +72,13 @@ export class ProductsEntryComponent implements OnInit {
 
     update(idx: number) {
         if (!this.editProduct.model || !this.editProduct.variant || !this.editProduct.type) return;
-        this.products[idx] = { ...this.editProduct };
-        this.saveProduct(this.products[idx]);
+        const product = {
+            ...this.editProduct,
+            id: this.products[idx].id || crypto.randomUUID(),
+            productLine: this.createProductLine(this.editProduct)
+        };
+        this.products[idx] = product;
+        this.saveProduct(product);
         this.cancelEdit();
     }
 
@@ -82,17 +93,32 @@ export class ProductsEntryComponent implements OnInit {
 
     private saveProduct(product: Product): void {
         const id = product.id || crypto.randomUUID();
-        this.database.db.products.upsert({ ...product, id, type: Number(product.type) })
+        this.database.db.products.upsert({
+            id,
+            model: product.model,
+            variant: product.variant,
+            type: Number(product.type),
+            category: product.category ?? '',
+            engine: product.engine,
+            transmission: product.transmission
+        })
             .catch(error => console.error('Unable to save product:', error));
     }
 
     cancelEdit() {
+        if (this.editIndex !== null && !this.products[this.editIndex]?.id) {
+            this.products.splice(this.editIndex, 1);
+        }
         this.editIndex = null;
-        this.editProduct = { id: '', model: '', variant: '', type: ProductType.PETROL, category: '', engine: '', transmission: '' };
+        this.editProduct = this.emptyProduct();
     }
 
     get filteredProducts() {
         return this.products.filter(product =>
+            (!this.filterModel.productLine ||
+                (product.productLine ?? this.createProductLine(product)).toLowerCase()
+                    .includes(this.filterModel.productLine.toLowerCase())) &&
+
             (!this.filterModel.model ||
                 product.model?.toLowerCase().includes(this.filterModel.model.toLowerCase())) &&
 
@@ -100,10 +126,21 @@ export class ProductsEntryComponent implements OnInit {
                 product.variant?.toLowerCase().includes(this.filterModel.variant.toLowerCase())) &&
 
             (this.filterModel.type === null ||
-                product.type === this.filterModel.type) &&
-
-            (!this.filterModel.category ||
-                product.category?.toLowerCase().includes(this.filterModel.category.toLowerCase()))
+                product.type === this.filterModel.type)
         );
+    }
+
+    createProductLine(product: Product): string {
+        return [
+            product.model,
+            product.variant,
+            this.productTypeLabels[product.type],
+            product.engine,
+            product.transmission
+        ].map(value => String(value ?? '').trim()).filter(Boolean).join(' ');
+    }
+
+    private emptyProduct(): Product {
+        return { id: '', model: '', variant: '', type: ProductType.PETROL, productLine: '', engine: '', transmission: '' };
     }
 }
