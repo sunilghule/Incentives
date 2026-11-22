@@ -48,6 +48,12 @@ interface SchemeFormValue {
   schemes: SubSchemeFormValue[];
 }
 
+interface RevisedTabValue {
+  carModels: string[];
+  selectors: VolumeModelSelector[];
+  tiers: (ModelBonus | StockReductionTier)[];
+}
+
 @Component({
   selector: 'app-scheme-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -82,6 +88,8 @@ export class SchemeFormComponent implements OnInit, OnDestroy {
   private readonly configDrafts = new WeakMap<FormGroup, { type: SchemeType; values: Partial<Record<SchemeType, string>> }>();
   private readonly expandedSubSchemes = new Set<AbstractControl>();
   private readonly activeVolumeTab = new WeakMap<FormGroup, number>();
+  private readonly revisedModelTabs = new WeakMap<FormGroup, FormGroup[]>();
+  private readonly activeRevisedTab = new WeakMap<FormGroup, number>();
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -297,6 +305,15 @@ export class SchemeFormComponent implements OnInit, OnDestroy {
     };
     this.restoreArrays(group, arrays);
     if (sub.type === SchemeType.VOLUME_BASED) this.loadActiveVolumeTab(group);
+    if (sub.type === SchemeType.MODEL_BONUS || sub.type === SchemeType.STOCK_REDUCTION) {
+      const savedTabs = sub.type === SchemeType.MODEL_BONUS
+        ? sub.modelBonusConfig?.modelTabs : sub.stockReductionConfig?.modelTabs;
+      if (savedTabs?.length) {
+        this.revisedModelTabs.set(group, savedTabs.map(tab => this.revisedTabGroup(sub.type, tab)));
+        this.activeRevisedTab.set(group, 0);
+        this.loadRevisedTab(group);
+      }
+    }
     this.configDrafts.set(group, { type: sub.type, values: {} });
     return group;
   }
@@ -799,6 +816,13 @@ export class SchemeFormComponent implements OnInit, OnDestroy {
     cloned.patchValue(value);
     this.restoreArrays(cloned, { ...value });
     (value.volumeTabs ?? []).forEach(tab => (cloned.get('volumeTabs') as FormArray).push(this.volumeTabGroup(tab)));
+    const revisedTabs = this.revisedModelTabs.get(subScheme);
+    if (revisedTabs) {
+      this.saveRevisedTab(subScheme);
+      this.revisedModelTabs.set(cloned, revisedTabs.map(tab => this.revisedTabGroup(
+        value.type, structuredClone(tab.getRawValue()) as RevisedTabValue)));
+      this.activeRevisedTab.set(cloned, this.activeRevisedTab.get(subScheme) ?? 0);
+    }
     const drafts = this.configDrafts.get(subScheme);
     this.configDrafts.set(cloned, structuredClone(drafts ?? { type: value.type, values: {} }));
     this.schemes.push(cloned);
@@ -890,6 +914,9 @@ export class SchemeFormComponent implements OnInit, OnDestroy {
   public buildScheme(): IncentiveScheme {
     const raw = structuredClone(this.form.getRawValue()) as SchemeFormValue;
     raw.schemes.forEach((sub, index) => {
+      if (sub.type === SchemeType.MODEL_BONUS || sub.type === SchemeType.STOCK_REDUCTION) {
+        this.saveRevisedTab(this.schemes.at(index) as FormGroup);
+      }
       if (sub.type !== SchemeType.VOLUME_BASED) return;
       const activeIndex = this.getActiveVolumeTabIndex(index);
       if (sub.volumeTabs[activeIndex]) {
@@ -935,9 +962,28 @@ export class SchemeFormComponent implements OnInit, OnDestroy {
             break;
           case SchemeType.MODEL_BONUS:
             sub.modelBonusConfig = { bonuses: this.cleanRanks(s.modelBonusTiers) };
+            sub.modelBonusConfig.modelTabs = (this.revisedModelTabs.get(this.schemes.at(raw.schemes.indexOf(s)) as FormGroup) ?? [])
+              .map(tab => ({
+                carModels: [...(tab.get('carModels')?.value as string[])],
+                selectors: structuredClone(tab.get('selectors')?.value as VolumeModelSelector[]),
+                tiers: this.cleanRanks((tab.get('tiers') as FormArray).getRawValue() as ModelBonus[])
+                  .map(tier => { const { carModels: _carModels, ...withoutModels } = tier; return withoutModels; })
+              }));
+            if (!sub.modelBonusConfig.modelTabs.some(tab => tab.selectors.length) && sub.modelBonusConfig.modelTabs.length < 2) {
+              delete sub.modelBonusConfig.modelTabs;
+            }
             break;
           case SchemeType.STOCK_REDUCTION:
             sub.stockReductionConfig = { tiers: this.cleanRanks(s.stockReductionTiers) };
+            sub.stockReductionConfig.modelTabs = (this.revisedModelTabs.get(this.schemes.at(raw.schemes.indexOf(s)) as FormGroup) ?? [])
+              .map(tab => ({
+                carModels: [...(tab.get('carModels')?.value as string[])],
+                selectors: structuredClone(tab.get('selectors')?.value as VolumeModelSelector[]),
+                tiers: this.cleanRanks((tab.get('tiers') as FormArray).getRawValue() as StockReductionTier[])
+              }));
+            if (!sub.stockReductionConfig.modelTabs.some(tab => tab.selectors.length) && sub.stockReductionConfig.modelTabs.length < 2) {
+              delete sub.stockReductionConfig.modelTabs;
+            }
             break;
           case SchemeType.ACCESSORIES:
             sub.accessoriesConfig = {
@@ -1525,5 +1571,170 @@ export class SchemeFormComponent implements OnInit, OnDestroy {
 
   canRemoveVolumeTab(schemeIndex: number): boolean {
     return this.getVolumeTabs(schemeIndex).length > 1;
+  }
+
+  getRevisedTabs(schemeIndex: number): FormGroup[] {
+    const scheme = this.schemes.at(schemeIndex) as FormGroup;
+    let tabs = this.revisedModelTabs.get(scheme);
+    if (tabs) return tabs;
+    const type = scheme.get('type')?.value as SchemeType;
+    const config = this.revisedTierArray(scheme, type).getRawValue() as (ModelBonus | StockReductionTier)[];
+    const models = type === SchemeType.MODEL_BONUS
+      ? [...new Set(config.flatMap(tier => ('carModels' in tier ? tier.carModels ?? [] : [])))]
+      : [];
+    tabs = [this.revisedTabGroup(type, { carModels: models, selectors: models.map(model => ({ model })), tiers: config })];
+    this.revisedModelTabs.set(scheme, tabs);
+    this.activeRevisedTab.set(scheme, 0);
+    return tabs;
+  }
+
+  activateRevisedTab(schemeIndex: number, tabIndex: number): void {
+    const scheme = this.schemes.at(schemeIndex) as FormGroup;
+    this.saveRevisedTab(scheme);
+    this.activeRevisedTab.set(scheme, tabIndex);
+    this.loadRevisedTab(scheme);
+  }
+
+  getActiveRevisedTabIndex(schemeIndex: number): number {
+    return this.activeRevisedTab.get(this.schemes.at(schemeIndex) as FormGroup) ?? 0;
+  }
+
+  createRevisedTab(schemeIndex: number, model: string, variant = '', fuelType = '', engine = '', transmission = ''): void {
+    const scheme = this.schemes.at(schemeIndex) as FormGroup;
+    const type = scheme.get('type')?.value as SchemeType;
+    const selector: VolumeModelSelector = {
+      ...(model ? { model } : {}), ...(variant ? { variant } : {}), ...(fuelType ? { fuelType } : {}),
+      ...(engine ? { engine } : {}), ...(transmission ? { transmission } : {})
+    };
+    const tabs = this.getRevisedTabs(schemeIndex);
+    const existing = tabs.findIndex(tab => ((tab.get('selectors')?.value as VolumeModelSelector[]) ?? [])
+      .some(item => JSON.stringify(item) === JSON.stringify(selector)));
+    if (existing >= 0) {
+      this.activateRevisedTab(schemeIndex, existing);
+      return;
+    }
+    this.saveRevisedTab(scheme);
+    const copy = this.getActiveRevisedTab(scheme)!.getRawValue() as RevisedTabValue;
+    tabs.push(this.revisedTabGroup(type, { ...structuredClone(copy), carModels: model ? [model] : [], selectors: [selector] }));
+    this.activeRevisedTab.set(scheme, tabs.length - 1);
+    this.loadRevisedTab(scheme);
+    this.form.markAsDirty();
+  }
+
+  addSelectorToActiveRevisedTab(
+    schemeIndex: number,
+    model: string,
+    variant = '',
+    fuelType = '',
+    engine = '',
+    transmission = ''
+  ): void {
+    const scheme = this.schemes.at(schemeIndex) as FormGroup;
+    const tabs = this.getRevisedTabs(schemeIndex);
+    const selector: VolumeModelSelector = {
+      ...(model ? { model } : {}), ...(variant ? { variant } : {}), ...(fuelType ? { fuelType } : {}),
+      ...(engine ? { engine } : {}), ...(transmission ? { transmission } : {})
+    };
+    const key = JSON.stringify(selector);
+    const owner = tabs.findIndex(tab => ((tab.get('selectors')?.value as VolumeModelSelector[]) ?? [])
+      .some(item => JSON.stringify(item) === key));
+    if (owner >= 0) {
+      this.activateRevisedTab(schemeIndex, owner);
+      this.toastService.show('This model variant is already assigned to a tab.', 'info');
+      return;
+    }
+    const active = this.getActiveRevisedTab(scheme);
+    if (!active) return;
+    const selectors = (active.get('selectors')?.value as VolumeModelSelector[]) ?? [];
+    active.get('selectors')?.setValue([...selectors, selector]);
+    if (model) active.get('carModels')?.setValue([
+      ...new Set([...((active.get('carModels')?.value as string[]) ?? []), model])
+    ]);
+    this.form.markAsDirty();
+  }
+
+  removeSelectorFromRevisedTab(schemeIndex: number, tabIndex: number, selectorIndex: number): void {
+    const tab = this.getRevisedTabs(schemeIndex)[tabIndex];
+    if (!tab) return;
+    const selectors = [...((tab.get('selectors')?.value as VolumeModelSelector[]) ?? [])];
+    selectors.splice(selectorIndex, 1);
+    tab.get('selectors')?.setValue(selectors);
+    tab.get('carModels')?.setValue([...new Set(selectors.map(selector => selector.model).filter(Boolean))] as string[]);
+    this.form.markAsDirty();
+  }
+
+  getRevisedTabSelectors(schemeIndex: number, tabIndex: number): VolumeModelSelector[] {
+    return (this.getRevisedTabs(schemeIndex)[tabIndex]?.get('selectors')?.value as VolumeModelSelector[]) ?? [];
+  }
+
+  canRemoveRevisedTab(schemeIndex: number): boolean {
+    return this.getRevisedTabs(schemeIndex).length > 1;
+  }
+
+  getRevisedTabLabel(schemeIndex: number, tabIndex: number): string {
+    const selectors = this.getRevisedTabSelectors(schemeIndex, tabIndex);
+    if (!selectors.length) return 'All Models';
+    return selectors.map(selector => this.selectorLabel(selector)).join(' + ');
+  }
+
+  removeRevisedTab(schemeIndex: number, tabIndex: number): void {
+    const scheme = this.schemes.at(schemeIndex) as FormGroup;
+    const tabs = this.getRevisedTabs(schemeIndex);
+    if (tabs.length <= 1 || !tabs[tabIndex]) return;
+    if (!globalThis.confirm(`Delete the ${this.getRevisedTabLabel(schemeIndex, tabIndex)} tab?`)) return;
+    const activeIndex = this.getActiveRevisedTabIndex(schemeIndex);
+    this.saveRevisedTab(scheme);
+    tabs.splice(tabIndex, 1);
+    this.activeRevisedTab.set(scheme, Math.min(activeIndex > tabIndex ? activeIndex - 1 : activeIndex, tabs.length - 1));
+    this.loadRevisedTab(scheme);
+    this.form.markAsDirty();
+  }
+
+  private revisedTierArray(scheme: FormGroup, type: SchemeType): FormArray {
+    return scheme.get(type === SchemeType.MODEL_BONUS ? 'modelBonusTiers' : 'stockReductionTiers') as FormArray;
+  }
+
+  private revisedTierFactory(type: SchemeType): () => FormGroup {
+    return type === SchemeType.MODEL_BONUS ? () => this.createModelBonusTierGroup() : () => this.createStockReductionTierGroup();
+  }
+
+  private revisedTabGroup(type: SchemeType, value: RevisedTabValue): FormGroup {
+    const tiers = this.fb.array<FormGroup>([]);
+    for (const item of value.tiers) {
+      const tier = this.revisedTierFactory(type)();
+      tier.patchValue(this.normalizedTierValue(item));
+      tiers.push(tier);
+    }
+    return this.fb.group({ carModels: [value.carModels], selectors: [value.selectors], tiers });
+  }
+
+  private getActiveRevisedTab(scheme: FormGroup): FormGroup | undefined {
+    return (this.revisedModelTabs.get(scheme) ?? [])[this.activeRevisedTab.get(scheme) ?? 0];
+  }
+
+  private saveRevisedTab(scheme: FormGroup): void {
+    const active = this.getActiveRevisedTab(scheme);
+    if (!active) return;
+    const target = active.get('tiers') as FormArray;
+    target.clear({ emitEvent: false });
+    const type = scheme.get('type')?.value as SchemeType;
+    for (const value of this.revisedTierArray(scheme, type).getRawValue()) {
+      const tier = this.revisedTierFactory(type)();
+      tier.patchValue(value, { emitEvent: false });
+      target.push(tier, { emitEvent: false });
+    }
+  }
+
+  private loadRevisedTab(scheme: FormGroup): void {
+    const active = this.getActiveRevisedTab(scheme);
+    if (!active) return;
+    const type = scheme.get('type')?.value as SchemeType;
+    const target = this.revisedTierArray(scheme, type);
+    target.clear({ emitEvent: false });
+    for (const value of (active.get('tiers') as FormArray).getRawValue()) {
+      const tier = this.revisedTierFactory(type)();
+      tier.patchValue(value, { emitEvent: false });
+      target.push(tier, { emitEvent: false });
+    }
   }
 }

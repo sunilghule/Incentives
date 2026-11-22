@@ -69,11 +69,8 @@
       </div>
       <form [formGroup]="form" (submit)="$event.preventDefault()" [attr.aria-busy]="busy()">
         <fieldset [disabled]="busy()">
-          <legend class="visually-hidden">Scheme draft</legend>
-
           <!-- Sub-Schemes Section -->
           <div class="mb-3">
-            <span class="visually-hidden" id="subSchemesHeader">Sub-schemes</span>
             <!-- Sub-Schemes -->
             <div formArrayName="schemes" class="sub-schemes-list" aria-labelledby="subSchemesHeader">
               <div *ngFor="let subScheme of schemes.controls; let i=index" [formGroupName]="i"
@@ -115,22 +112,36 @@
                         @if (subScheme.get('type')?.value !== 'Volume Based') {
                         <button type="button" class="btn btn-sm btn-outline-secondary me-1" (click)="cloneSubScheme(i)"
                           title="Clone this sub-scheme">
-                          Clone
+                          <i class="bi bi-files"></i> Clone
                         </button>
                         }
-                        <button type="button" class="btn btn-sm btn-outline-danger me-2" (click)="removeSubScheme(i)"
+                        <button type="button" class="btn btn-sm btn-outline-danger me-1" (click)="removeSubScheme(i)"
                           title="Remove this sub-scheme">
                           Remove
                         </button>
-                        <!-- Add Tier button moved here, next to delete -->
-                        <button *ngIf="subScheme.get('type')?.value === 'Volume Based'" type="button"
-                          class="btn btn-sm btn-outline-primary" (click)="addTier(i)" title="Add Tier">
-                          <i class="bi bi-plus-circle"></i>
+                        <!-- Add Tier button is available for every tier-based revised template. -->
+                        @if (subScheme.get('type')?.value === 'Volume Based') {
+                        <button type="button" class="btn btn-sm btn-outline-primary" (click)="addTier(i)"
+                          title="Add Tier">
+                          <i class="bi bi-plus-circle"></i> Add Tier
                         </button>
+                        }
+                        @if (subScheme.get('type')?.value === 'Model Bonus') {
+                        <button type="button" class="btn btn-sm btn-outline-primary" (click)="addModelBonusTier(i)"
+                          title="Add Tier">
+                          <i class="bi bi-plus-circle"></i> Add Tier
+                        </button>
+                        }
+                        @if (subScheme.get('type')?.value === 'Stock Reduction') {
+                        <button type="button" class="btn btn-sm btn-outline-primary" (click)="addStockReductionTier(i)"
+                          title="Add Tier">
+                          <i class="bi bi-plus-circle"></i> Add Tier
+                        </button>
+                        }
                         <button *ngIf="subScheme.get('type')?.value === 'GM Target'" type="button"
                           class="btn btn-sm btn-outline-primary" (click)="addGMTargetTier(i)"
                           title="Add GM Target Tier">
-                          <i class="bi bi-plus-circle"></i>
+                          <i class="bi bi-plus-circle"></i> Add Tier
                         </button>
                       </div>
                     </div>
@@ -234,14 +245,14 @@
                         <table class="table table-sm table-bordered" [id]="'incentiveTiersTable' + i">
                           <thead class="table-light">
                             <tr>
-                              <th style="width: 9%;">Slab</th>
+                              <th class="compact-slab-column">Slab</th>
                               <th style="width: 9%;">Rank</th>
                               <th style="width: 26%;">Quantity <span class="text-danger">*</span></th>
                               <th style="width: 20%;">Stock Amount (₹) <span class="text-danger">*</span></th>
                               <th style="width: 20%;" *ngIf="subScheme.get('applyStockDifferential')?.value">
                                 Order Amount (₹)
                               </th>
-                              <th style="width: 16%;" class="text-center">Action</th>
+                              <th class="tier-action-header text-center">Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -280,7 +291,7 @@
                                   class="form-control form-control-sm" formControlName="incentiveAmountNonStock" min="0"
                                   placeholder="3000">
                               </td>
-                              <td class="text-center">
+                              <td class="tier-action-cell">
                                 <!-- Only show remove button if row is not empty -->
                                 <button
                                   *ngIf="tier.get('minVolume')?.value || tier.get('maxVolume')?.value || tier.get('incentiveAmount')?.value || (subScheme.get('applyStockDifferential')?.value && tier.get('incentiveAmountNonStock')?.value)"
@@ -335,16 +346,88 @@
 
                   <!-- Model Bonus Configuration -->
                   <div *ngIf="subScheme.get('type')?.value === 'Model Bonus'">
-                    <div class="table-responsive sub-scheme-table-scroll">
-                      <table class="table table-bordered table-hover" [id]="'modelBonusTiersTable' + i">
+                    <div class="volume-tab-toolbar mb-3">
+                      <div class="row g-2 align-items-end">
+                        <div class="col-lg-3">
+                          <label class="form-label small" [for]="'modelBonusRuleModel-' + i">Model</label>
+                          <select class="form-select form-select-sm" #modelBonusRuleModel
+                            [id]="'modelBonusRuleModel-' + i">
+                            <option value="">All models</option>
+                            @for (model of carModels; track model) { <option [value]="model">{{ model }}</option> }
+                          </select>
+                        </div>
+                        <div class="col-lg-3">
+                          <label class="form-label small" [for]="'modelBonusRuleVariant-' + i">Variant</label>
+                          <select class="form-select form-select-sm" #modelBonusRuleVariant
+                            [id]="'modelBonusRuleVariant-' + i">
+                            <option value="">Any variant</option>
+                            @for (variant of getVariantsForModel(modelBonusRuleModel.value); track variant) {
+                            <option [value]="variant">{{ variant }}</option> }
+                          </select>
+                        </div>
+                        <div class="col-lg-2">
+                          <label class="form-label small" [for]="'modelBonusRuleFuel-' + i">Fuel</label>
+                          <select class="form-select form-select-sm" #modelBonusRuleFuel
+                            [id]="'modelBonusRuleFuel-' + i">
+                            <option value="">Any fuel</option>
+                            @for (type of carTypes; track type) { <option [value]="type">{{ type }}</option> }
+                          </select>
+                        </div>
+                        <div class="col-lg-2">
+                          <label class="form-label small" [for]="'modelBonusRuleEngine-' + i">Engine</label>
+                          <select class="form-select form-select-sm" #modelBonusRuleEngine
+                            [id]="'modelBonusRuleEngine-' + i">
+                            <option value="">Any engine</option>
+                            @for (engine of getEnginesForModel(modelBonusRuleModel.value); track engine) {
+                            <option [value]="engine">{{ engine }}</option> }
+                          </select>
+                        </div>
+                        <div class="col-lg-2">
+                          <label class="form-label small" [for]="'modelBonusRuleTransmission-' + i">Transmission</label>
+                          <select class="form-select form-select-sm" #modelBonusRuleTransmission
+                            [id]="'modelBonusRuleTransmission-' + i">
+                            <option value="">Any transmission</option>
+                            @for (transmission of getTransmissionsForModel(modelBonusRuleModel.value); track
+                            transmission) {
+                            <option [value]="transmission">{{ transmission }}</option> }
+                          </select>
+                        </div>
+                      </div>
+                      <div class="d-flex flex-wrap gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-success"
+                          (click)="addSelectorToActiveRevisedTab(i, modelBonusRuleModel.value, modelBonusRuleVariant.value, modelBonusRuleFuel.value, modelBonusRuleEngine.value, modelBonusRuleTransmission.value); modelBonusRuleModel.value = ''; modelBonusRuleVariant.value = ''; modelBonusRuleFuel.value = ''; modelBonusRuleEngine.value = ''; modelBonusRuleTransmission.value = ''">
+                          <i class="bi bi-plus-circle" aria-hidden="true"></i> Add variant
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary"
+                          (click)="createRevisedTab(i, modelBonusRuleModel.value, modelBonusRuleVariant.value, modelBonusRuleFuel.value, modelBonusRuleEngine.value, modelBonusRuleTransmission.value); modelBonusRuleModel.value = ''; modelBonusRuleVariant.value = ''; modelBonusRuleFuel.value = ''; modelBonusRuleEngine.value = ''; modelBonusRuleTransmission.value = ''">
+                          <i class="bi bi-files" aria-hidden="true"></i> Create new tab
+                        </button>
+                      </div>
+                    </div>
+                    <ul class="nav nav-tabs mb-0 volume-model-tabs" aria-label="Model bonus tabs">
+                      @for (tab of getRevisedTabs(i); track $index) {
+                      <li class="nav-item volume-model-tab-item">
+                        <button type="button" class="nav-link" [class.active]="getActiveRevisedTabIndex(i) === $index"
+                          [attr.aria-current]="getActiveRevisedTabIndex(i) === $index ? 'page' : null"
+                          (click)="activateRevisedTab(i, $index)">{{ getRevisedTabLabel(i, $index) }}</button>
+                        <button type="button" class="volume-tab-delete" [disabled]="!canRemoveRevisedTab(i)"
+                          (click)="removeRevisedTab(i, $index); $event.stopPropagation()"
+                          [attr.aria-label]="'Delete ' + getRevisedTabLabel(i, $index) + ' tab'">
+                          <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
+                      </li>
+                      }
+                    </ul>
+                    <div class="table-responsive sub-scheme-table-scroll revised-template-table">
+                      <table class="table table-sm table-bordered table-hover compact-table"
+                        [id]="'modelBonusTiersTable' + i">
                         <thead class="table-light">
                           <tr>
-                            <th style="width: 12%;">Slab</th>
-                            <th style="width: 8%;">Rank</th>
-                            <th style="width: 61%;" [id]="'modelBonusCarModelsHeader-' + i">Car Models</th>
-                            <th style="width: 10%;">Number of Cars</th>
-                            <th style="width: 13%;">Fixed Incentive</th>
-                            <th style="width: 8%;" class="text-center">Action</th>
+                            <th class="compact-slab-column">Slab</th>
+                            <th class="col-rank">Rank</th>
+                            <th class="col-number">Number of Cars</th>
+                            <th class="col-amount">Fixed Incentive</th>
+                            <th class="col-action text-center">Action</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -364,33 +447,6 @@
                               </select>
                             </td>
                             <td>
-                              <div class="d-flex flex-wrap align-items-center gap-2">
-                                <span *ngFor="let model of tier.get('carModels')?.value"
-                                  class="badge bg-primary d-inline-flex align-items-center">
-                                  {{ model }}
-                                  <button type="button" class="btn-close btn-close-white ms-1"
-                                    style="font-size: 0.6rem;" (click)="removeModelBonusCarModel(i, j, model)"
-                                    title="Remove model">
-                                  </button>
-                                </span>
-                                <div class="input-group input-group-sm flex-nowrap"
-                                  style="flex: 1 1 14rem; min-width: 12rem;">
-                                  <select class="form-select" #modelBonusModelInput
-                                    [id]="'modelBonusCarModel-' + i + '-' + j"
-                                    [attr.aria-labelledby]="'modelBonusCarModelsHeader-' + i">
-                                    <option value="">Select car model</option>
-                                    @for (model of carModels; track model) {
-                                    <option [value]="model">{{ model }}</option>
-                                    }
-                                  </select>
-                                  <button type="button" class="btn btn-outline-success text-nowrap"
-                                    (click)="addModelBonusCarModel(i, j, modelBonusModelInput.value); modelBonusModelInput.value = ''">
-                                    <i class="bi bi-plus"></i> Add
-                                  </button>
-                                </div>
-                              </div>
-                            </td>
-                            <td>
                               <input type="number" [id]="'modelBonusNumberOfCars-' + i + '-' + j"
                                 class="form-control form-control-sm" formControlName="numberOfCars" min="1"
                                 placeholder="5">
@@ -400,7 +456,7 @@
                                 class="form-control form-control-sm" formControlName="fixedIncentiveAmount" min="0"
                                 placeholder="10000">
                             </td>
-                            <td class="text-center">
+                            <td class="tier-action-cell">
                               <button type="button" class="btn btn-sm btn-outline-danger"
                                 (click)="removeModelBonusTier(i, j)" title="Remove tier">
                                 <i class="bi bi-trash"></i>
@@ -420,27 +476,86 @@
 
                   <!-- Stock Reduction Configuration -->
                   <div *ngIf="subScheme.get('type')?.value === 'Stock Reduction'">
-                    <!-- Stock Reduction Tiers -->
-                    <div class="row mb-3">
-                      <div class="col-md-12">
-                        <label class="form-label fw-bold" [for]="'stockReductionTiersTable' + i">
-                          <i class="bi bi-box-seam"></i> Stock Reduction Tiers
-                        </label>
+                    <div class="volume-tab-toolbar mb-3">
+                      <div class="row g-2 align-items-end">
+                        <div class="col-lg-3">
+                          <label class="form-label small" [for]="'stockRuleModel-' + i">Model</label>
+                          <select class="form-select form-select-sm" #stockRuleModel [id]="'stockRuleModel-' + i">
+                            <option value="">All models</option>
+                            @for (model of carModels; track model) { <option [value]="model">{{ model }}</option> }
+                          </select>
+                        </div>
+                        <div class="col-lg-3">
+                          <label class="form-label small" [for]="'stockRuleVariant-' + i">Variant</label>
+                          <select class="form-select form-select-sm" #stockRuleVariant [id]="'stockRuleVariant-' + i">
+                            <option value="">Any variant</option>
+                            @for (variant of getVariantsForModel(stockRuleModel.value); track variant) {
+                            <option [value]="variant">{{ variant }}</option> }
+                          </select>
+                        </div>
+                        <div class="col-lg-2">
+                          <label class="form-label small" [for]="'stockRuleFuel-' + i">Fuel</label>
+                          <select class="form-select form-select-sm" #stockRuleFuel [id]="'stockRuleFuel-' + i">
+                            <option value="">Any fuel</option>
+                            @for (type of carTypes; track type) { <option [value]="type">{{ type }}</option> }
+                          </select>
+                        </div>
+                        <div class="col-lg-2">
+                          <label class="form-label small" [for]="'stockRuleEngine-' + i">Engine</label>
+                          <select class="form-select form-select-sm" #stockRuleEngine [id]="'stockRuleEngine-' + i">
+                            <option value="">Any engine</option>
+                            @for (engine of getEnginesForModel(stockRuleModel.value); track engine) {
+                            <option [value]="engine">{{ engine }}</option> }
+                          </select>
+                        </div>
+                        <div class="col-lg-2">
+                          <label class="form-label small" [for]="'stockRuleTransmission-' + i">Transmission</label>
+                          <select class="form-select form-select-sm" #stockRuleTransmission
+                            [id]="'stockRuleTransmission-' + i">
+                            <option value="">Any transmission</option>
+                            @for (transmission of getTransmissionsForModel(stockRuleModel.value); track transmission) {
+                            <option [value]="transmission">{{ transmission }}</option> }
+                          </select>
+                        </div>
+                      </div>
+                      <div class="d-flex flex-wrap gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-success"
+                          (click)="addSelectorToActiveRevisedTab(i, stockRuleModel.value, stockRuleVariant.value, stockRuleFuel.value, stockRuleEngine.value, stockRuleTransmission.value); stockRuleModel.value = ''; stockRuleVariant.value = ''; stockRuleFuel.value = ''; stockRuleEngine.value = ''; stockRuleTransmission.value = ''">
+                          <i class="bi bi-plus-circle" aria-hidden="true"></i> Add variant
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary"
+                          (click)="createRevisedTab(i, stockRuleModel.value, stockRuleVariant.value, stockRuleFuel.value, stockRuleEngine.value, stockRuleTransmission.value); stockRuleModel.value = ''; stockRuleVariant.value = ''; stockRuleFuel.value = ''; stockRuleEngine.value = ''; stockRuleTransmission.value = ''">
+                          <i class="bi bi-files" aria-hidden="true"></i> Create new tab
+                        </button>
                       </div>
                     </div>
-
+                    <ul class="nav nav-tabs mb-0 volume-model-tabs" aria-label="Stock reduction tabs">
+                      @for (tab of getRevisedTabs(i); track $index) {
+                      <li class="nav-item volume-model-tab-item">
+                        <button type="button" class="nav-link" [class.active]="getActiveRevisedTabIndex(i) === $index"
+                          [attr.aria-current]="getActiveRevisedTabIndex(i) === $index ? 'page' : null"
+                          (click)="activateRevisedTab(i, $index)">{{ getRevisedTabLabel(i, $index) }}</button>
+                        <button type="button" class="volume-tab-delete" [disabled]="!canRemoveRevisedTab(i)"
+                          (click)="removeRevisedTab(i, $index); $event.stopPropagation()"
+                          [attr.aria-label]="'Delete ' + getRevisedTabLabel(i, $index) + ' tab'">
+                          <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
+                      </li>
+                      }
+                    </ul>
                     <div formArrayName="stockReductionTiers">
                       <div class="table-responsive mb-3 sub-scheme-table-scroll">
-                        <table class="table table-sm table-bordered" [id]="'stockReductionTiersTable' + i">
+                        <table class="table table-sm table-bordered compact-table"
+                          [id]="'stockReductionTiersTable' + i">
                           <thead class="table-light">
                             <tr>
-                              <th style="width: 12%;">Slab</th>
-                              <th style="width: 8%;">Rank</th>
-                              <th style="width: 18%;">Min Days <span class="text-danger">*</span></th>
-                              <th style="width: 18%;">Max Days <span class="text-danger">*</span></th>
-                              <th style="width: 18%;">Sale Target <span class="text-danger">*</span></th>
-                              <th style="width: 30%;">Incentive (₹) <span class="text-danger">*</span></th>
-                              <th style="width: 8%;" class="text-center">Action</th>
+                              <th class="compact-slab-column">Slab</th>
+                              <th class="col-rank">Rank</th>
+                              <th class="col-number">Min Days <span class="text-danger">*</span></th>
+                              <th class="col-number">Max Days <span class="text-danger">*</span></th>
+                              <th class="col-number">Sale Target <span class="text-danger">*</span></th>
+                              <th class="col-amount">Incentive (₹) <span class="text-danger">*</span></th>
+                              <th class="col-action text-center">Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -479,21 +594,14 @@
                                   class="form-control form-control-sm" formControlName="incentiveAmount" min="0"
                                   placeholder="50000">
                               </td>
-                              <td class="text-center">
+                              <td class="tier-action-cell">
                                 <button type="button" class="btn btn-sm btn-outline-danger"
                                   (click)="removeStockReductionTier(i, j)" title="Remove tier">
                                   <i class="bi bi-trash"></i>
                                 </button>
                                 <button *ngIf="j === getStockReductionTiers(i).length - 1" type="button"
                                   class="btn btn-sm btn-outline-primary ms-1" (click)="addStockReductionTier(i)"
-                                  [disabled]="
-                            !(
-                              !tier.get('minStockDays')?.value &&
-                              !tier.get('maxStockDays')?.value &&
-                              !tier.get('saleTarget')?.value &&
-                              !tier.get('incentiveAmount')?.value
-                            )
-                          " title="Add Stock Reduction Tier">
+                                  title="Add Stock Reduction Tier">
                                   <i class="bi bi-plus-circle"></i>
                                 </button>
                               </td>
@@ -513,12 +621,12 @@
                         <table class="table table-sm table-bordered mb-0" [id]="'accessoryTiersTable' + i">
                           <thead class="table-light">
                             <tr>
-                              <th style="width: 12%;">Slab</th>
+                              <th class="compact-slab-column">Slab</th>
                               <th style="width: 8%;">Rank</th>
                               <th style="width: 42%;">Slab Amount (₹) <span class="text-danger">*</span></th>
                               <th style="width: 14%;">Incentive %</th>
                               <th style="width: 28%;">Fixed Incentive (₹)</th>
-                              <th style="width: 8%;" class="text-center">Action</th>
+                              <th class="tier-action-header text-center">Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -553,7 +661,7 @@
                                   class="form-control form-control-sm" formControlName="incentiveAmount" min="0.01"
                                   placeholder="e.g. 500" (input)="onAccessoryIncentiveChange(tier, 'incentiveAmount')">
                               </td>
-                              <td class="text-center">
+                              <td class="tier-action-cell">
                                 <button type="button" class="btn btn-sm btn-outline-danger"
                                   (click)="removeAccessoryTier(i, j)" title="Remove tier">
                                   <i class="bi bi-trash"></i>
@@ -582,7 +690,7 @@
                               <th style="width: 36%;" [id]="'gmCarModelsHeader-' + i">Car Model</th>
                               <th style="width: 26%;">Number of Cars <span class="text-danger">*</span></th>
                               <th style="width: 30%;">Additional Discount % <span class="text-danger">*</span></th>
-                              <th style="width: 8%;" class="text-center">Action</th>
+                              <th class="tier-action-header text-center">Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -622,7 +730,7 @@
                                   class="form-control form-control-sm" formControlName="additionalDiscountPercent"
                                   min="0" max="100" placeholder="2">
                               </td>
-                              <td class="text-center">
+                              <td class="tier-action-cell">
                                 <button type="button" class="btn btn-sm btn-outline-danger"
                                   (click)="removeGMTargetTier(i, j)" title="Remove tier">
                                   <i class="bi bi-trash"></i>
@@ -653,13 +761,13 @@
                         <table class="table table-sm table-bordered" [id]="'locationTargetsTable' + i">
                           <thead class="table-light">
                             <tr>
-                              <th style="width: 12%;">Slab</th>
+                              <th class="compact-slab-column">Slab</th>
                               <th style="width: 28%;">Location <span class="text-danger">*</span></th>
                               <th style="width: 10%;">Rank</th>
                               <th style="width: 17%;">Target Number <span class="text-danger">*</span></th>
                               <th style="width: 15%;">Target in % <span class="text-danger">*</span></th>
                               <th style="width: 22%;">Bonus Amount (₹) <span class="text-danger">*</span></th>
-                              <th style="width: 8%;" class="text-center">Action</th>
+                              <th class="tier-action-header text-center">Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -700,7 +808,7 @@
                                   class="form-control form-control-sm" formControlName="bonusAmount" min="0"
                                   placeholder="5000">
                               </td>
-                              <td class="text-center">
+                              <td class="tier-action-cell">
                                 <button type="button" class="btn btn-sm btn-outline-danger"
                                   (click)="removeLocationTarget(i, j)" title="Remove location target">
                                   <i class="bi bi-trash"></i>
@@ -726,13 +834,13 @@
                         <table class="table table-sm table-bordered" [id]="'targetAchievementTiersTable' + i">
                           <thead class="table-light">
                             <tr>
-                              <th style="width: 12%;">Slab</th>
+                              <th class="compact-slab-column">Slab</th>
                               <th style="width: 28%;">Finance / Extended Warranty</th>
                               <th style="width: 12%;">Rank</th>
                               <th style="width: 20%;">Achievement in % <span class="text-danger">*</span></th>
                               <th style="width: 24%;">Bonus Amount (₹) <span class="text-danger">*</span></th>
                               <th style="width: 8%;" class="text-center">Per Car</th>
-                              <th style="width: 8%;" class="text-center">Action</th>
+                              <th class="tier-action-header text-center">Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -773,7 +881,7 @@
                                 <input class="form-check-input" type="checkbox" formControlName="perCarValue"
                                   [id]="'targetAchievementPerCar-' + i + '-' + j" aria-label="Apply bonus per car">
                               </td>
-                              <td class="text-center">
+                              <td class="tier-action-cell">
                                 <button type="button" class="btn btn-sm btn-outline-danger"
                                   (click)="removeTargetAchievementTier(i, j)" title="Remove target tier">
                                   <i class="bi bi-trash"></i>

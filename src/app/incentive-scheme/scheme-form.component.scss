@@ -341,6 +341,110 @@
   flex: 0 0 7.5rem;
 }
 
+.revised-template-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #cfe2ff;
+  border-radius: 0.5rem;
+  background: #f8fbff;
+}
+
+.revised-template-filters {
+  display: grid;
+  grid-template-columns: auto minmax(10rem, 14rem) auto minmax(10rem, 14rem);
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+}
+
+.revised-template-filters .form-label {
+  margin: 0;
+  white-space: nowrap;
+  color: #49627a;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.revised-template-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.template-hint {
+  color: #6c757d;
+  font-size: 0.75rem;
+}
+
+.revised-template-table .compact-table {
+  min-width: 48rem;
+  table-layout: fixed;
+}
+
+.revised-template-table .compact-table th,
+.revised-template-table .compact-table td {
+  padding: 0.35rem 0.4rem;
+}
+
+.revised-template-table .compact-table .form-control,
+.revised-template-table .compact-table .form-select,
+.revised-template-table .compact-table .input-group {
+  min-width: 0;
+}
+
+.revised-template-table .col-slab {
+  width: 10%;
+}
+
+.revised-template-table .col-rank {
+  width: 8%;
+}
+
+.revised-template-table .col-number {
+  width: 14%;
+}
+
+.revised-template-table .col-amount {
+  width: 20%;
+}
+
+.revised-template-table .col-action {
+  width: 6%;
+}
+
+.revised-template-table .btn-sm {
+  padding: 0.2rem 0.35rem;
+}
+
+.tier-action-cell {
+  min-width: 5rem;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.tier-action-cell .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+.compact-slab-column,
+th.compact-slab-column {
+  width: 7rem !important;
+  min-width: 7rem;
+}
+
+.tier-action-header {
+  width: 6rem;
+  min-width: 6rem;
+}
+
 @media (max-width: 640px) {
   .scheme-month-toolbar>div {
     flex-basis: 100%;
@@ -388,5 +492,19 @@
 
   .sub-scheme-table-scroll {
     max-height: min(48vh, 24rem);
+  }
+
+  .revised-template-filters {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .revised-template-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .template-hint {
+    max-width: 14rem;
   }
 }

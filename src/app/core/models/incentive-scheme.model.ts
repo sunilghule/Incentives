@@ -124,6 +124,13 @@ export interface VolumeTier {
 
 export interface ModelBonusConfig {
   bonuses: ModelBonus[];
+  modelTabs?: TierModelTab<ModelBonus>[];
+}
+
+export interface TierModelTab<T> {
+  carModels: string[];
+  selectors: VolumeModelSelector[];
+  tiers: T[];
 }
 
 export interface ModelBonus {
@@ -219,6 +226,7 @@ export interface DiscountTier {
 
 export interface StockReductionConfig {
   tiers: StockReductionTier[];
+  modelTabs?: TierModelTab<StockReductionTier>[];
 }
 
 export interface StockReductionTier {

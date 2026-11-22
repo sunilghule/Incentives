@@ -304,14 +304,22 @@ export class NewIncentiveCalculationService {
                 },
                 [SchemeType.MODEL_BONUS]: () => {
                     field = 'modelBonusIncentive';
-                    for (const group of groups(ranked(getTiers('bonuses', 'modelBonusTiers')))) {
-                        const tier = highest(group, 'numberOfCars', row => {
-                            const count = sumUnits(selectedSales.filter(sale => matchesModels(row['carModels'], sale.model)));
-                            return count > 0 && count >= (number(row['numberOfCars']) ?? Infinity);
-                        });
-                        amount += number(tier?.['fixedIncentiveAmount']) ?? 0;
+                    const tabs = rows(config['modelTabs']);
+                    const configs = tabs.length ? tabs : [config];
+                    for (const tabConfig of configs) {
+                        const selectors = rows(tabConfig['selectors']);
+                        const tabSales = eligibleSales.filter(sale => matchesModels(tabConfig['carModels'], sale.model)
+                            && (!selectors.length || selectors.some(selector => matchesSelector(selector, sale))));
+                        const tiers = tabs.length ? rows(tabConfig['tiers']) : getTiers('bonuses', 'modelBonusTiers');
+                        for (const group of groups(ranked(tiers))) {
+                            const tier = highest(group, 'numberOfCars', row => {
+                                const count = sumUnits(tabSales.filter(sale => matchesModels(row['carModels'], sale.model)));
+                                return count > 0 && count >= (number(row['numberOfCars']) ?? Infinity);
+                            });
+                            amount += number(tier?.['fixedIncentiveAmount']) ?? 0;
+                        }
                     }
-                    details = 'Highest eligible tier per identical rank/model group, paid once (not per vehicle).';
+                    details = 'Highest eligible tier per model tab and identical rank/model group, paid once (not per vehicle).';
                 },
                 [SchemeType.ACCESSORIES]: () => {
                     field = 'accessoriesIncentive';
@@ -345,21 +353,29 @@ export class NewIncentiveCalculationService {
                 },
                 [SchemeType.STOCK_REDUCTION]: () => {
                     field = 'stockReductionIncentive';
-                    if (selectedSales.some(sale => sale.stock && sale.age === undefined)) warn(`${sub.name}: missing stock age/date data.`);
-                    const buckets = new Map<string, Row[]>();
-                    for (const tier of ranked(getTiers('tiers', 'stockReductionTiers'))) {
-                        const bucket = JSON.stringify([number(tier['minStockDays']), number(tier['maxStockDays'])]);
-                        buckets.set(bucket, [...(buckets.get(bucket) ?? []), tier]);
+                    const tabs = rows(config['modelTabs']);
+                    const configs = tabs.length ? tabs : [config];
+                    for (const tabConfig of configs) {
+                        const selectors = rows(tabConfig['selectors']);
+                        const tabSales = eligibleSales.filter(sale => matchesModels(tabConfig['carModels'], sale.model)
+                            && (!selectors.length || selectors.some(selector => matchesSelector(selector, sale))));
+                        if (tabSales.some(sale => sale.stock && sale.age === undefined)) warn(`${sub.name}: missing stock age/date data.`);
+                        const tiers = tabs.length ? rows(tabConfig['tiers']) : getTiers('tiers', 'stockReductionTiers');
+                        const buckets = new Map<string, Row[]>();
+                        for (const tier of ranked(tiers)) {
+                            const bucket = JSON.stringify([number(tier['minStockDays']), number(tier['maxStockDays'])]);
+                            buckets.set(bucket, [...(buckets.get(bucket) ?? []), tier]);
+                        }
+                        for (const bucket of buckets.values()) {
+                            const tier = highest(bucket, 'saleTarget', row => {
+                                const count = sumUnits(tabSales.filter(sale => sale.stock && sale.age !== undefined
+                                    && sale.age >= (number(row['minStockDays']) ?? Infinity) && sale.age <= (number(row['maxStockDays']) ?? -Infinity)));
+                                return count > 0 && count >= (number(row['saleTarget']) ?? Infinity);
+                            });
+                            amount += number(tier?.['incentiveAmount']) ?? 0;
+                        }
                     }
-                    for (const bucket of buckets.values()) {
-                        const tier = highest(bucket, 'saleTarget', row => {
-                            const count = sumUnits(selectedSales.filter(sale => sale.stock && sale.age !== undefined
-                                && sale.age >= (number(row['minStockDays']) ?? Infinity) && sale.age <= (number(row['maxStockDays']) ?? -Infinity)));
-                            return count > 0 && count >= (number(row['saleTarget']) ?? Infinity);
-                        });
-                        amount += number(tier?.['incentiveAmount']) ?? 0;
-                    }
-                    details = 'One highest achieved payout per matching inclusive stock-age bucket; no shared pool allocation.';
+                    details = 'One highest achieved payout per matching model tab and inclusive stock-age bucket.';
                 },
                 [SchemeType.TARGET_ACHIEVEMENT]: () => {
                     field = 'targetAchievementBonus';

@@ -380,7 +380,8 @@ function validateSub(sub: Data, context: string, nextRow: number, origin?: Origi
     const config = object(sub[layout.config], `${at} ${layout.config}`);
     validateConfig(config, type, at);
     const modelTabs = config['modelTabs'];
-    if (type === SchemeType.VOLUME_BASED && modelTabs !== undefined) {
+    if ([SchemeType.VOLUME_BASED, SchemeType.MODEL_BONUS, SchemeType.STOCK_REDUCTION].includes(type)
+        && modelTabs !== undefined) {
         if (!Array.isArray(modelTabs) || !modelTabs.length) return fail(at, 'modelTabs must be a nonempty list');
         modelTabs.forEach((value, tabIndex) => {
             const tab = object(value, `${at} model tab ${tabIndex + 1}`);

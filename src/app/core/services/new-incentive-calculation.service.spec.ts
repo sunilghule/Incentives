@@ -430,4 +430,31 @@ describe('NewIncentiveCalculationService', () => {
         expect(engine.calculate(ca, month, selectors, matching).totalIncentive).toBe(100);
         expect(engine.calculate(ca, month, selectors, nonMatching).totalIncentive).toBe(0);
     });
+
+    it.each([
+        [SchemeType.MODEL_BONUS, 'modelBonusConfig'],
+        [SchemeType.STOCK_REDUCTION, 'stockReductionConfig']
+    ] as const)('matches %s model-tab metadata selectors', (type, configKey) => {
+        const metadataScheme = scheme(type === SchemeType.MODEL_BONUS
+            ? modelBonus() : stockBonus());
+        const tabTier = type === SchemeType.MODEL_BONUS
+            ? { rank: 'CA', numberOfCars: 1, fixedIncentiveAmount: 2000 }
+            : { rank: 'CA', minStockDays: 30, maxStockDays: 90, saleTarget: 1, incentiveAmount: 800 };
+        (metadataScheme.schemes[0] as unknown as Record<string, unknown>)[configKey] = {
+            ...(type === SchemeType.MODEL_BONUS ? { bonuses: [] } : { tiers: [] }),
+            modelTabs: [{
+                carModels: ['Nexon'],
+                selectors: [{ model: 'Nexon', variant: 'Smart', fuelType: 'Petrol', engine: '1.2', transmission: 'Manual' }],
+                tiers: [tabTier]
+            }]
+        };
+        const matching = sale({
+            carModel: 'Nexon', carType: 'Petrol', variant: 'Smart', engine: '1.2', transmission: 'Manual',
+            isStock: true, stockAgeDays: 45
+        });
+        const nonMatching = { ...matching, engine: '1.5' };
+        const expected = type === SchemeType.MODEL_BONUS ? 2000 : 800;
+        expect(engine.calculate(ca, month, metadataScheme, [matching]).totalIncentive).toBe(expected);
+        expect(engine.calculate(ca, month, metadataScheme, [nonMatching]).totalIncentive).toBe(0);
+    });
 });
